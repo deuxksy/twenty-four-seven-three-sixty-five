@@ -2,8 +2,9 @@
 
 # ⚠️ [절대 금지] 프로젝트 폴더 내의 실제 비밀 파일들 (추적 배제)
 .env
-keys.txt
 .oci/
+keys.txt
+terraform.tfvars
 
 # 🔄 [추적 허용] 껍데기 경로 파일과 암호화된 파일 (안전함)
 .env.local
