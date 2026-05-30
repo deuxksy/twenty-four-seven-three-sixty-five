@@ -3,8 +3,8 @@
 CHANGELOG.md
 
 # ⚠️ [절대 금지] 프로젝트 폴더 내의 실제 비밀 파일들 (추적 배제)
-.env
 .oci/
+.env
 keys.txt
 terraform.tfvars
 

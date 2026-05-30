@@ -12,7 +12,7 @@ fi
 
 echo "🔐 1단계: SOPS 복호화 환경 구동 및 암호문 해독 중..."
 export SOPS_AGE_KEY_FILE="$(pwd)/keys.txt"
-sops -d --input-type raw --output-type raw .env.sops > .env
+dec
 
 echo "🧠 2단계: 해독된 평문 변수들을 시스템 메모리(RAM)에 적재 중..."
 export $(cat .env | xargs)
