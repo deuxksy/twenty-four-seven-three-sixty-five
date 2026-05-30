@@ -15,7 +15,6 @@
       ]
     }
   },
-  // ⚠️ 중요: 컨테이너 실행 직후 sops를 이용해 자동 복호화 실행 파이프라인 트리거
-  "postStartCommand": "if [ -n \"$SOPS_AGE_KEY\" ]; then mkdir -p ~/.config/sops/age && echo \"$SOPS_AGE_KEY\" > ~/.config/sops/age/keys.txt && sops -d .env.sops > .env 2>/dev/null && echo '✅ SOPS 복호화 성공: .env 파일 재생성 완료'; else echo '⚠️ SOPS_AGE_KEY 환경변수가 설정되지 않아 복호화를 건너뜁니다.'; fi",
+  "postStartCommand": "hash -r && if [ -n \"$SOPS_AGE_KEY\" ]; then echo \"$SOPS_AGE_KEY\" > keys.txt && chmod 600 keys.txt && echo 'export SOPS_AGE_KEY_FILE=\"$(pwd)/keys.txt\"' > .env.local && echo 'alias dec=\"sops -d .env.sops > .env\"' >> .env.local && echo 'alias enc=\"sops -e .env > .env.sops\"' >> .env.local && echo 'alias load=\"export \\$(cat .env | xargs)\"' >> .env.local && source .env.local && sops -d .env.sops > .env 2>/dev/null && echo '✅ 자동 Rebuild 및 SOPS 안착 성공!'; else echo '⚠️ SOPS_AGE_KEY 변수가 확인되지 않았습니다.'; fi",
   "remoteUser": "vscode"
 }
