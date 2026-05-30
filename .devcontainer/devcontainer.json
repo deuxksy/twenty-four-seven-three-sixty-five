@@ -1,0 +1,21 @@
+{
+  "name": "OCI Free-Tier DevOps Workspace with SOPS",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "hashicorp.terraform",
+        "redhat.ansible",
+        "signageos.signageos-vscode-sops"
+      ]
+    }
+  },
+  // ⚠️ 중요: 컨테이너 실행 직후 sops를 이용해 자동 복호화 실행 파이프라인 트리거
+  "postStartCommand": "if [ -n \"$SOPS_AGE_KEY\" ]; then mkdir -p ~/.config/sops/age && echo \"$SOPS_AGE_KEY\" > ~/.config/sops/age/keys.txt && sops -d .env.sops > .env 2>/dev/null && echo '✅ SOPS 복호화 성공: .env 파일 재생성 완료'; else echo '⚠️ SOPS_AGE_KEY 환경변수가 설정되지 않아 복호화를 건너뜁니다.'; fi",
+  "remoteUser": "vscode"
+}
