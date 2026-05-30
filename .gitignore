@@ -8,6 +8,3 @@ CHANGELOG.md
 keys.txt
 terraform.tfvars
 
-# 🔄 [추적 허용] 껍데기 경로 파일과 암호화된 파일 (안전함)
-.env.local
-.env.sops
