@@ -1,4 +1,5 @@
 # tf-infra/provider.tf
+
 provider "oci" {
   tenancy_ocid     = var.oci_tenancy_ocid
   user_ocid        = var.oci_user_ocid

@@ -20,7 +20,7 @@ source .env
 set +a
 
 echo "🔒 3단계: [보안] 터미널에 남은 평문 흔적 파일(.env) 즉시 영구 파괴!"
-rm -f .env
+#rm -f .env
 
 echo "📂 4단계: OpenTofu 코드가 위치한 tf-infra 폴더로 이동 중..."
 cd tf-infra
