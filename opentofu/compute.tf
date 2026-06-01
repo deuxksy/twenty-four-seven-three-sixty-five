@@ -9,7 +9,6 @@ data "oci_identity_availability_domains" "ads" {
 resource "oci_core_instance" "lt" {
   compartment_id      = var.compartment_ocid
   display_name        = "lt"
-  hostname_label      = "lt"
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   shape               = "VM.Standard.E2.1.Micro"
 
@@ -46,7 +45,6 @@ resource "oci_core_instance" "lt" {
 resource "oci_core_instance" "brla" {
   compartment_id      = var.compartment_ocid
   display_name        = "brla"
-  hostname_label      = "brla"
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   shape               = "VM.Standard.A1.Flex"
 
@@ -62,7 +60,7 @@ resource "oci_core_instance" "brla" {
   }
 
   create_vnic_details {
-    subnet_id       = oci_core_subnet.private.id
+    subnet_id        = oci_core_subnet.private.id
     assign_public_ip = false
     hostname_label   = "brla"
   }

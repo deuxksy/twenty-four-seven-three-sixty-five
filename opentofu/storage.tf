@@ -12,7 +12,6 @@ resource "oci_core_volume" "brla_data" {
 # Block Volume을 ARM A1(brla)에 Attach (Paravirtualized)
 resource "oci_core_volume_attachment" "brla_data_attach" {
   attachment_type = "paravirtualized"
-  compartment_id  = var.compartment_ocid
   instance_id     = oci_core_instance.brla.id
   volume_id       = oci_core_volume.brla_data.id
   display_name    = "brla-data-attach"
