@@ -47,8 +47,15 @@ Web Browser만으로 개발 가능한 환경에서 OCI Free-Tier 리소스를 �
 
 | 인스턴스 | 타입 | OS | CPU / RAM | 용도 |
 | :--- | :--- | :--- | :--- | :--- |
-| AMD Micro | VM.Standard.E2.1.Micro | Ubuntu 24.04 LTS | 1/8 OCPU, 1GB | Tailscale exit node, jumphost |
-| ARM A1 | VM.Standard.A1.Flex | Ubuntu 24.04 LTS ARM | 4 OCPU, 24GB | Docker Compose (Hermes + code-server) |
+| AMD Micro (lt) | VM.Standard.E2.1.Micro | Ubuntu 24.04 LTS | 1/8 OCPU, 1GB | Tailscale exit node, jumphost |
+| ARM A1 (brla) | VM.Standard.A1.Flex | Ubuntu 24.04 LTS ARM | 4 OCPU, 24GB | Docker Compose (Hermes + code-server) |
+
+### 호스트명
+
+| 인스턴스 | Tailscale 이름 | 출처 (WALL-E) | 도메인 |
+| :--- | :--- | :--- | :--- |
+| AMD Micro | `lt` | L-T (LighT, 조명 로봇) | `lt.bun-bull.ts.net` |
+| ARM A1 | `brla` | BRL-A (umBReLlA, 파라솔 로봇) | `brla.bun-bull.ts.net` |
 
 ### 스토리지
 
@@ -68,8 +75,8 @@ Tailscale 내장 HTTPS 사용. Let's Encrypt 자동 발급/갱신.
 
 | 서비스 | URL |
 | :--- | :--- |
-| code-server | `https://arm-a1.bun-bull.ts.net:8080` |
-| Hermes | `https://arm-a1.bun-bull.ts.net:3000` |
+| code-server | `https://brla.bun-bull.ts.net:8080` |
+| Hermes | `https://brla.bun-bull.ts.net:3000` |
 
 Ansible에서 `tailscale cert <hostname>.bun-bull.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
 
