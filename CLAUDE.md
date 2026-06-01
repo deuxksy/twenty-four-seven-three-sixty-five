@@ -42,15 +42,15 @@ bash setup.sh
 
 ```
 인터넷 ─→ AMD Micro (lt, Ubuntu 24.04)
-           Public Subnet (10.210.0.0/24), 공용 IP
+           lt-subnet (10.210.0.0/24), 공용 IP
            Tailscale exit node + subnet router
                 │
                 │ VCN (10.210.0.0/16)
                 │
-                └→ Private Subnet (10.210.1.0/24)
-                   └→ ARM A1 (brla, Ubuntu 24.04 ARM, 4 OCPU / 24GB RAM)
-                       Block Volume 64GB → /home/ubuntu
-                       Docker Compose: code-server + Hermes
+                └→ ARM A1 (brla, Ubuntu 24.04 ARM, 4 OCPU / 24GB RAM)
+                   brla-subnet (10.210.1.0/24), 공용 IP
+                   Block Volume 64GB → /data
+                   Docker Compose: code-server + Hermes Agent
 ```
 
 - **Provisioning**: OpenTofu(cloud-init으로 Tailscale 설치) → Ansible(Tailscale 네트워크로 전체 설정)
@@ -81,3 +81,36 @@ bash setup.sh
 - `setup.sh`의 `rm -f .env` 라인이 현재 주석 처리됨 (보안상 활성화 권장)
 - `tofu apply`도 `setup.sh`에서 주석 처리됨 (수동 실행 필요)
 - `.env.local`은 Codespaces 전용 alias 파일 (로컬에서도 `source .env.local`로 사용 가능)
+
+## Gotchas
+
+- `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
+- Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
+- Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
+- Block Volume `/data` 마운트 후 code-server 컨테이너에 `user: "1000:1000"` 필요
+
+## Directory Structure
+
+```
+opentofu/                # OpenTofu
+├── backend.tf           # Cloudflare R2 state backend
+├── provider.tf          # OCI provider
+├── variables.tf         # 변수 선언
+├── data.tf              # Ubuntu 24.04 이미지 조회 (AMD/ARM)
+├── vcn.tf               # VCN, Subnets, Security Lists, Gateway
+├── compute.tf           # AMD Micro (lt) + ARM A1 (brla)
+├── storage.tf           # Block Volume 64GB + Attachment
+├── cloud-init-lt.yaml   # lt: Tailscale + exit node
+└── cloud-init-brla.yaml # brla: Tailscale
+
+ansible/                 # Ansible
+├── ansible.cfg
+├── inventory/hosts.ini  # tofu output으로 자동 생성
+├── playbook-lt.yml      # lt: Tailscale exit node
+├── playbook-brla.yml    # brla: Docker + code-server + Hermes
+└── roles/
+    ├── tailscale/       # exit node, IP forwarding, HTTPS cert
+    ├── docker/          # Docker Engine + Compose, /data 마운트
+    ├── code-server/     # codercom/code-server:latest (user 1000:1000)
+    └── hermes/          # nousresearch/hermes-agent:latest, gateway run
+```
