@@ -1,6 +1,6 @@
 # twenty-four-seven-three-sixty-five
 
-Web Browser만으로 개발해야 하는 환경에서 OCI Free-Tier 인프라를 프로비저닝하기 위한 프로젝트. OpenTofu + SOPS(age) + GitHub Codespaces.
+Web Browser만으로 개발해야 하는 환경에서 OCI Free-Tier 인프라를 프로비저닝하기 위한 프로젝트. OpenTofu + SOPS(age) + Ansible + GitHub Codespaces.
 
 ## Quick Start
 
@@ -20,6 +20,7 @@ bash setup.sh
 .env.sops          # 암호화된 시크릿 (git 추적)
 .env.local         # enc/dec/load alias
 setup.sh           # 복호화 → tfvars 생성 → tofu apply
-opentofu/          # OpenTofu 코드
+opentofu/          # OpenTofu (VCN, Compute, Storage)
+ansible/           # Ansible (Tailscale, Docker, code-server, Hermes)
 .devcontainer/     # Codespaces 설정
 ```
