@@ -1,0 +1,5 @@
+# ansible/roles/tailscale/handlers/main.yml
+- name: restart tailscale
+  service:
+    name: tailscaled
+    state: restarted

@@ -1,0 +1,38 @@
+# ansible/roles/tailscale/tasks/main.yml
+
+- name: Tailscale 실행 중 확인
+  command: tailscale status
+  register: ts_check
+  changed_when: false
+
+- name: Tailscale IP 출력
+  debug:
+    msg: "{{ inventory_hostname }} Tailscale 상태: {{ ts_check.stdout_lines[0] | default('확인 중') }}"
+
+# Exit node 설정 (AMD lt만)
+- name: Exit node + subnet router 활성화
+  command: >
+    tailscale up
+    --hostname={{ tailscale_hostname }}
+    --advertise-exit-node
+    --advertise-routes={{ tailscale_advertise_routes }}
+  when: tailscale_exit_node | bool
+  notify: restart tailscale
+
+# IP 포워딩 (exit node에 필요)
+- name: IP 포워딩 활성화
+  sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: yes
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+  when: tailscale_exit_node | bool
+
+# Tailscale HTTPS 인증서 발급 (ARM brla만)
+- name: Tailscale 인증서 발급
+  command: tailscale cert {{ tailscale_hostname }}.bun-bull.ts.net
+  args:
+    creates: "/etc/tailscale/{{ tailscale_hostname }}.bun-bull.ts.net.crt"
+  when: not tailscale_exit_node | bool

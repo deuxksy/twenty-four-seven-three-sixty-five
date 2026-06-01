@@ -1,0 +1,21 @@
+# ansible/roles/code-server/tasks/main.yml
+
+- name: code-server 디렉토리 생성
+  file:
+    path: /home/ubuntu/code-server
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: code-server Docker Compose 파일 생성
+  template:
+    src: docker-compose.yml.j2
+    dest: /home/ubuntu/code-server/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+
+- name: code-server 컨테이너 시작
+  shell: docker compose up -d
+  args:
+    chdir: /home/ubuntu/code-server
+  become_user: ubuntu

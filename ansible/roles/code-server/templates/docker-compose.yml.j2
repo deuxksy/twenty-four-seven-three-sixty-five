@@ -1,0 +1,12 @@
+services:
+  code-server:
+    image: codercom/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /home/ubuntu:/home/coder
+    environment:
+      - PASSWORD={{ code_server_password | default('changeme') }}
+      - TZ=Asia/Seoul

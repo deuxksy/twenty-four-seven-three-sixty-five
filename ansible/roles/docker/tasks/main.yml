@@ -1,0 +1,48 @@
+# ansible/roles/docker/tasks/main.yml
+
+# Docker 공식 GPG 키 추가
+- name: Docker GPG 키 추가
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Docker APT 리포지토리 추가
+  apt_repository:
+    repo: "deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    update_cache: yes
+
+# Docker 설치
+- name: Docker Engine + Compose 플러그인 설치
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: ubuntu 유저를 docker 그룹에 추가
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Docker 서비스 활성화
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+# Block Volume 마운트
+- name: Block Volume 파일시스템 생성
+  filesystem:
+    fstype: ext4
+    dev: /dev/oracleoci/oraclevdb
+
+- name: Block Volume /home/ubuntu에 마운트
+  mount:
+    path: /home/ubuntu
+    src: /dev/oracleoci/oraclevdb
+    fstype: ext4
+    state: mounted

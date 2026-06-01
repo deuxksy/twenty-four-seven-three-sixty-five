@@ -1,0 +1,4 @@
+# ansible/roles/tailscale/defaults/main.yml
+tailscale_exit_node: false
+tailscale_advertise_routes: ""
+tailscale_hostname: "{{ inventory_hostname }}"

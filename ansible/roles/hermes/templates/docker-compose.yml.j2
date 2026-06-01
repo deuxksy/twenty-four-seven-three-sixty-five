@@ -1,0 +1,12 @@
+services:
+  hermes:
+    image: {{ hermes_image | default('hermes:latest') }}
+    container_name: hermes
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - /home/ubuntu/hermes/data:/app/data
+      - /home/ubuntu/hermes/config:/app/config
+    environment:
+      - TZ=Asia/Seoul

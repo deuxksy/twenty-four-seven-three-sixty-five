@@ -1,0 +1,13 @@
+# ansible/playbook-brla.yml
+---
+- name: ARM A1 (brla) - Docker + 서비스 배포
+  hosts: brla
+  become: yes
+  roles:
+    - role: tailscale
+      vars:
+        tailscale_exit_node: false
+        tailscale_hostname: "brla"
+    - role: docker
+    - role: code-server
+    - role: hermes

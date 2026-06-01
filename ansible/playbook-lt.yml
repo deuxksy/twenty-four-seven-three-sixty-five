@@ -1,0 +1,11 @@
+# ansible/playbook-lt.yml
+---
+- name: AMD Micro (lt) - Tailscale Exit Node 설정
+  hosts: lt
+  become: yes
+  roles:
+    - role: tailscale
+      vars:
+        tailscale_exit_node: true
+        tailscale_advertise_routes: "10.210.1.0/24"
+        tailscale_hostname: "lt"
