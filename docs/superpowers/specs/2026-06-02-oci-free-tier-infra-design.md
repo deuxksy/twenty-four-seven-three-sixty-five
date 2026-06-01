@@ -19,7 +19,7 @@ Web Browser만으로 개발 가능한 환경에서 OCI Free-Tier 리소스를 �
                 └→ Private Subnet (10.210.1.0/24)
                    │
                    └→ ARM A1 (Ubuntu 24.04, 4 OCPU / 24GB RAM)
-                       Block Volume 106GB → /home/ubuntu
+                       Block Volume 64GB → /home/ubuntu
                        Docker Compose:
                        ├── code-server (VSCode)
                        └── Hermes (AI Agent)
