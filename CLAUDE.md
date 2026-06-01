@@ -87,6 +87,7 @@ bash setup.sh
 
 - `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
 - Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
+- Tailscale 인증서 경로는 `/var/lib/tailscale/certs/` (not `/etc/tailscale/`)
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - Block Volume `/data` 마운트 후 code-server 컨테이너에 `user: "1000:1000"` 필요
 - Hermes 최초 배포 시 API 키 입력 필요 → `/data/hermes/.env`에 `ANTHROPIC_API_KEY` 등 사전 작성하면 setup 생략 가능

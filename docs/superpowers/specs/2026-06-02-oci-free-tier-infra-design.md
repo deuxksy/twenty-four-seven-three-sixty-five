@@ -77,7 +77,7 @@ Tailscale 내장 HTTPS 사용. Let's Encrypt 자동 발급/갱신.
 | Hermes | `https://brla.bun-bull.ts.net:8642` (Gateway), `:9119` (Dashboard) |
 
 Ansible에서 `tailscale cert <hostname>.bun-bull.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
-인증서 경로: `/etc/tailscale/<hostname>.bun-bull.ts.net.{crt,key}`
+인증서 경로: `/var/lib/tailscale/certs/<hostname>.bun-bull.ts.net.{crt,key}`
 
 ## 프로비저닝 흐름
 

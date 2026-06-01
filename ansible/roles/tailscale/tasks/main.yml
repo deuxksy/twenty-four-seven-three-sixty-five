@@ -38,7 +38,11 @@
   when: not tailscale_exit_node | bool
 
 - name: Tailscale 인증서 발급
-  command: "tailscale cert {{ ts_dns.stdout }}"
+  command: >
+    tailscale cert {{ ts_dns.stdout }}
+    --cert-file=/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt
+    --key-file=/var/lib/tailscale/certs/{{ ts_dns.stdout }}.key
   args:
-    creates: "/etc/tailscale/{{ ts_dns.stdout }}.crt"
+    creates: "/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt"
+  become: yes
   when: not tailscale_exit_node | bool
