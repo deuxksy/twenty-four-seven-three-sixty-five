@@ -35,5 +35,5 @@ output "ansible_inventory_ini" {
 # Block Volume device path
 output "brla_volume_device" {
   description = "Block Volume device path (Ansible에서 마운트용)"
-  value       = "/dev/oracleoci/oraclevdb"
+  value       = "/data"
 }

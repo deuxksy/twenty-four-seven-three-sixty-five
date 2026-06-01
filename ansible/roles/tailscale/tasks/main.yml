@@ -31,8 +31,14 @@
   when: tailscale_exit_node | bool
 
 # Tailscale HTTPS 인증서 발급 (ARM brla만)
+- name: Tailscale DNS명 조회
+  shell: tailscale status --json | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))"
+  register: ts_dns
+  changed_when: false
+  when: not tailscale_exit_node | bool
+
 - name: Tailscale 인증서 발급
-  command: tailscale cert {{ tailscale_hostname }}.bun-bull.ts.net
+  command: "tailscale cert {{ ts_dns.stdout }}"
   args:
-    creates: "/etc/tailscale/{{ tailscale_hostname }}.bun-bull.ts.net.crt"
+    creates: "/etc/tailscale/{{ ts_dns.stdout }}.crt"
   when: not tailscale_exit_node | bool

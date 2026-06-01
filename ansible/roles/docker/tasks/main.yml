@@ -34,15 +34,28 @@
     state: started
     enabled: yes
 
-# Block Volume 마운트
+# Block Volume 마운트 (/data — /home/ubuntu에 마운트하면 .ssh 덮어씌워짐)
 - name: Block Volume 파일시스템 생성
   filesystem:
     fstype: ext4
     dev: /dev/oracleoci/oraclevdb
 
-- name: Block Volume /home/ubuntu에 마운트
+- name: /data 디렉토리 생성
+  file:
+    path: /data
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: Block Volume /data에 마운트
   mount:
-    path: /home/ubuntu
+    path: /data
     src: /dev/oracleoci/oraclevdb
     fstype: ext4
     state: mounted
+
+- name: /data 소유권 설정
+  file:
+    path: /data
+    owner: ubuntu
+    group: ubuntu

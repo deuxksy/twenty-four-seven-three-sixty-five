@@ -7,19 +7,19 @@
     owner: ubuntu
     group: ubuntu
   loop:
-    - /home/ubuntu/hermes
-    - /home/ubuntu/hermes/data
-    - /home/ubuntu/hermes/config
+    - /data/hermes
+    - /data/hermes/data
+    - /data/hermes/config
 
 - name: Hermes Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2
-    dest: /home/ubuntu/hermes/docker-compose.yml
+    dest: /data/hermes/docker-compose.yml
     owner: ubuntu
     group: ubuntu
 
 - name: Hermes 컨테이너 시작
   shell: docker compose up -d
   args:
-    chdir: /home/ubuntu/hermes
-  become_user: ubuntu
+    chdir: /data/hermes
+  become: yes

@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /home/ubuntu:/home/coder
+      - /data/code-server:/home/coder
     environment:
       - PASSWORD={{ code_server_password | default('changeme') }}
       - TZ=Asia/Seoul
