@@ -20,6 +20,6 @@ bash setup.sh
 .env.sops          # 암호화된 시크릿 (git 추적)
 .env.local         # enc/dec/load alias
 setup.sh           # 복호화 → tfvars 생성 → tofu apply
-tf-infra/          # OpenTofu 코드
+opentofu/          # OpenTofu 코드
 .devcontainer/     # Codespaces 설정
 ```

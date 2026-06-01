@@ -4,7 +4,20 @@
 provider "registry.opentofu.org/hashicorp/oci" {
   version = "8.16.0"
   hashes = [
+    "h1:0m+xReaozuLAYOkIXJfD3VuB8ZH6c4ZF/rfZ2lSrvnU=",
+    "h1:1vFRFwwrZZ+8Zeoeb1vv4fj6kAuh4MaZ1yGSaZ/LdZY=",
+    "h1:3YBDxHKIlSo5PZ8DUHCi/+CeiLeiHoUs1tc1GudVQKM=",
+    "h1:7M1FEXuDHTDgLO7aiPjaCErnQ/QEkz4TT4/xCirrF2c=",
+    "h1:EElu8GqlHIFMwiWG8e9lGnanS05eo4BG7SLy79jJ7VY=",
+    "h1:IZ6ApZgQihqRg/H5XA0XgnIbXm7fiw0azMN+BQ0Y1qs=",
+    "h1:SCy9Kao+Nz9qYQIrWOtPD59afhkF3XX7L1Cjo4ZehOA=",
+    "h1:gIxrI0OUibxTMDJ0lwU019S5bFM02nQlxGxmmcBSyTo=",
+    "h1:kE3vteuYYSVKEzjwr0yQijS7aROzSVIX/Ijg3r2Odt8=",
+    "h1:l3D8iSlhdWX+9nIwEXxkeLv+V8U9hdwA2jSwspe5EQw=",
+    "h1:lGLBe6I8YupBqGD3nz2yFd7mjIcM1gdoBst+BkMFkv4=",
     "h1:lN1/OTAsX8S7uqv3tVBc4i6DtT4iTxV8XQQxDMdfsYM=",
+    "h1:ra1G+iYL3LLwvTq26qT1XNtsqQwz0Fg0qGS1I01jvx0=",
+    "h1:x13MV+EMc+f3t2W6rPMTmPoKunZpr10sfCNpT2aS/yA=",
     "zh:0adfa358bfc0670e02a8ca9fce1c5802ecd458546abfc6e8829a9008a95982dc",
     "zh:178abd014300bf7cd02d9c35a60c83cfa2fa6565435e83d66fb65d2561cdc6bf",
     "zh:19be7928e1a8e74e648c1cc164853e329fc8cc90b9cd472bb439dd8a66c4f5ee",

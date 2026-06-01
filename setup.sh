@@ -23,7 +23,7 @@ echo "🔒 3단계: [보안] 터미널에 남은 평문 흔적 파일(.env) 즉�
 #rm -f .env
 
 echo "📂 4단계: OpenTofu 코드가 위치한 tf-infra 폴더로 이동 중..."
-cd tf-infra
+cd opentofu
 
 echo "🔑 5단계: OCI API 접속용 인증서(.pem) 파일 추출 및 권한 격리..."
 mkdir -p .oci

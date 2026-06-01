@@ -22,8 +22,8 @@ dec                        # .env.sops → .env 복호화
 enc                        # .env → .env.sops 암호화
 load                       # .env 변수를 쉘 환경에 주입
 
-# OpenTofu (tf-infra/ 디렉토리에서 실행)
-cd tf-infra
+# OpenTofu (opentofu/ 디렉토리에서 실행)
+cd opentofu
 tofu init                  # Cloudflare R2 backend로 초기화
 tofu plan -var-file=terraform.tfvars
 tofu apply -auto-approve -var-file=terraform.tfvars
@@ -38,7 +38,7 @@ bash setup.sh
 ```
 .env.sops ──(sops -d)──→ .env ──(source)──→ 쉘 환경변수
                                               │
-tf-infra/                                    ├→ .oci/oci_api_key.pem
+opentofu/                                    ├→ .oci/oci_api_key.pem
 ├── provider.tf  (OCI provider + 변수 정의)   ├→ terraform.tfvars (자동 생성)
 ├── backend.tf   (Cloudflare R2 state)       └→ tofu apply
 └── .terraform.lock.hcl
