@@ -1,0 +1,11 @@
+#cloud-config
+hostname: brla
+manage_etc_hosts: true
+
+package_update: true
+packages:
+  - curl
+
+runcmd:
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --authkey=${tailscale_auth_key} --hostname=brla
