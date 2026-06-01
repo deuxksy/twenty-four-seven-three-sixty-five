@@ -68,10 +68,10 @@ Tailscale 내장 HTTPS 사용. Let's Encrypt 자동 발급/갱신.
 
 | 서비스 | URL |
 | :--- | :--- |
-| code-server | `https://arm-a1.tail-xxxxx.ts.net:8080` |
-| Hermes | `https://arm-a1.tail-xxxxx.ts.net:3000` |
+| code-server | `https://arm-a1.bun-bull.ts.net:8080` |
+| Hermes | `https://arm-a1.bun-bull.ts.net:3000` |
 
-Ansible에서 `tailscale cert <hostname>.tail-xxxxx.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
+Ansible에서 `tailscale cert <hostname>.bun-bull.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
 
 ## 프로비저닝 흐름
 
