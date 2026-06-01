@@ -56,11 +56,22 @@ Web Browser만으로 개발 가능한 환경에서 OCI Free-Tier 리소스를 �
 | :--- | :--- | :--- | :--- |
 | AMD Micro boot | 47GB | / | 기본 |
 | ARM A1 boot | 47GB | / | 기본 |
-| Block Volume | 106GB | /home/ubuntu | Docker data, workspace |
+| Block Volume | 64GB | /home/ubuntu | Docker data, workspace |
 
 ### DNS
 
 Tailscale MagicDNS 사용. 외부 DNS 불필요.
+
+### HTTPS
+
+Tailscale 내장 HTTPS 사용. Let's Encrypt 자동 발급/갱신.
+
+| 서비스 | URL |
+| :--- | :--- |
+| code-server | `https://arm-a1.tail-xxxxx.ts.net:8080` |
+| Hermes | `https://arm-a1.tail-xxxxx.ts.net:3000` |
+
+Ansible에서 `tailscale cert <hostname>.tail-xxxxx.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
 
 ## 프로비저닝 흐름
 
