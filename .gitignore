@@ -8,3 +8,7 @@ CHANGELOG.md
 .env
 keys.txt
 terraform.tfvars
+# Claude Code 관련 디렉토리
+.omc/
+.omx/
+.remember/
