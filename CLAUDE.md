@@ -81,6 +81,7 @@ bash setup.sh
 - `setup.sh`의 `rm -f .env` 라인이 현재 주석 처리됨 (보안상 활성화 권장)
 - `tofu apply`도 `setup.sh`에서 주석 처리됨 (수동 실행 필요)
 - `.env.local`은 Codespaces 전용 alias 파일 (로컬에서도 `source .env.local`로 사용 가능)
+- 인프라 변경 후 `docs/superpowers/specs/` 스펙과 실제 코드 동기화 필수
 
 ## Gotchas
 
@@ -88,6 +89,7 @@ bash setup.sh
 - Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - Block Volume `/data` 마운트 후 code-server 컨테이너에 `user: "1000:1000"` 필요
+- Hermes 최초 배포 시 API 키 입력 필요 → `/data/hermes/.env`에 `ANTHROPIC_API_KEY` 등 사전 작성하면 setup 생략 가능
 
 ## Directory Structure
 
