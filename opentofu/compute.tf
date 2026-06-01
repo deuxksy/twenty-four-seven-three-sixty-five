@@ -20,7 +20,7 @@ resource "oci_core_instance" "lt" {
   }
 
   create_vnic_details {
-    subnet_id              = oci_core_subnet.public.id
+    subnet_id              = oci_core_subnet.lt.id
     assign_public_ip       = true
     hostname_label         = "lt"
     skip_source_dest_check = true
@@ -56,8 +56,8 @@ resource "oci_core_instance" "brla" {
   }
 
   create_vnic_details {
-    subnet_id        = oci_core_subnet.private.id
-    assign_public_ip = false
+    subnet_id        = oci_core_subnet.lt.id
+    assign_public_ip = true
     hostname_label   = "brla"
   }
 

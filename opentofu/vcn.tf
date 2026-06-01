@@ -8,7 +8,7 @@ resource "oci_core_vcn" "main" {
   dns_label      = "tfss365"
 }
 
-# Internet Gateway (Public Subnet용)
+# Internet Gateway
 resource "oci_core_internet_gateway" "igw" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
@@ -16,7 +16,7 @@ resource "oci_core_internet_gateway" "igw" {
   enabled        = true
 }
 
-# OCI 서비스 목록 조회 (Service Gateway용)
+# Service Gateway
 data "oci_core_services" "oci_services" {
   filter {
     name   = "name"
@@ -25,17 +25,16 @@ data "oci_core_services" "oci_services" {
   }
 }
 
-# Service Gateway (Private Subnet용)
 resource "oci_core_service_gateway" "sgw" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "private-sgw"
+  display_name   = "sgw"
   services {
     service_id = data.oci_core_services.oci_services.services[0].id
   }
 }
 
-# Route Table - Public
+# Route Table - Public (Internet Gateway)
 resource "oci_core_route_table" "public" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
@@ -46,11 +45,11 @@ resource "oci_core_route_table" "public" {
   }
 }
 
-# Route Table - Private
-resource "oci_core_route_table" "private" {
+# Route Table - Service Gateway
+resource "oci_core_route_table" "service" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "private-rt"
+  display_name   = "service-rt"
   route_rules {
     destination       = data.oci_core_services.oci_services.services[0].cidr_block
     destination_type  = "SERVICE_CIDR_BLOCK"
@@ -59,13 +58,12 @@ resource "oci_core_route_table" "private" {
   }
 }
 
-# Security List - Public (SSH + Tailscale)
-resource "oci_core_security_list" "public" {
+# Security List - lt (SSH + Tailscale 공용 허용)
+resource "oci_core_security_list" "lt" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "public-sl"
+  display_name   = "lt-sl"
 
-  # SSH 인바운드
   ingress_security_rules {
     protocol  = "6"
     source    = "0.0.0.0/0"
@@ -76,7 +74,6 @@ resource "oci_core_security_list" "public" {
     }
   }
 
-  # Tailscale 인바운드 (WireGuard UDP)
   ingress_security_rules {
     protocol  = "17"
     source    = "0.0.0.0/0"
@@ -87,7 +84,6 @@ resource "oci_core_security_list" "public" {
     }
   }
 
-  # 모든 아웃바운드 허용
   egress_security_rules {
     protocol    = "all"
     destination = "0.0.0.0/0"
@@ -95,20 +91,41 @@ resource "oci_core_security_list" "public" {
   }
 }
 
-# Security List - Private (VCN 내부만)
-resource "oci_core_security_list" "private" {
+# Security List - brla (Tailscale만 공용, SSH는 VCN 내부만)
+resource "oci_core_security_list" "brla" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "private-sl"
+  display_name   = "brla-sl"
 
-  # VCN 내부 통신 허용
+  # Tailscale만 공용 허용
+  ingress_security_rules {
+    protocol  = "17"
+    source    = "0.0.0.0/0"
+    stateless = false
+    udp_options {
+      min = 41641
+      max = 41641
+    }
+  }
+
+  # SSH는 VCN 내부(lt)에서만
+  ingress_security_rules {
+    protocol  = "6"
+    source    = var.vcn_cidr
+    stateless = false
+    tcp_options {
+      min = 22
+      max = 22
+    }
+  }
+
+  # VCN 내부 통신
   ingress_security_rules {
     protocol  = "all"
     source    = var.vcn_cidr
     stateless = false
   }
 
-  # 모든 아웃바운드 허용
   egress_security_rules {
     protocol    = "all"
     destination = "0.0.0.0/0"
@@ -116,25 +133,24 @@ resource "oci_core_security_list" "private" {
   }
 }
 
-# Public Subnet
-resource "oci_core_subnet" "public" {
+# Subnet - lt 전용
+resource "oci_core_subnet" "lt" {
   compartment_id    = var.compartment_ocid
   vcn_id            = oci_core_vcn.main.id
-  cidr_block        = var.public_subnet_cidr
-  display_name      = "public-subnet"
-  dns_label         = "public"
+  cidr_block        = "10.210.0.0/24"
+  display_name      = "lt-subnet"
+  dns_label         = "lt"
   route_table_id    = oci_core_route_table.public.id
-  security_list_ids = [oci_core_security_list.public.id]
+  security_list_ids = [oci_core_security_list.lt.id]
 }
 
-# Private Subnet
-resource "oci_core_subnet" "private" {
-  compartment_id             = var.compartment_ocid
-  vcn_id                     = oci_core_vcn.main.id
-  cidr_block                 = var.private_subnet_cidr
-  display_name               = "private-subnet"
-  dns_label                  = "private"
-  route_table_id             = oci_core_route_table.private.id
-  security_list_ids          = [oci_core_security_list.private.id]
-  prohibit_public_ip_on_vnic = true
+# Subnet - brla 전용
+resource "oci_core_subnet" "brla" {
+  compartment_id    = var.compartment_ocid
+  vcn_id            = oci_core_vcn.main.id
+  cidr_block        = "10.210.1.0/24"
+  display_name      = "brla-subnet"
+  dns_label         = "brla"
+  route_table_id    = oci_core_route_table.public.id
+  security_list_ids = [oci_core_security_list.brla.id]
 }
