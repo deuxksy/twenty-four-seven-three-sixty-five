@@ -53,6 +53,7 @@ resource "oci_core_route_table" "private" {
   display_name   = "private-rt"
   route_rules {
     destination       = data.oci_core_services.oci_services.services[0].cidr_block
+    destination_type  = "SERVICE_CIDR_BLOCK"
     network_entity_id = oci_core_service_gateway.sgw.id
     description       = "OCI services via Service Gateway"
   }

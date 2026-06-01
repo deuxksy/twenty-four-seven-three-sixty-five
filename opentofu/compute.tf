@@ -6,21 +6,17 @@ data "oci_identity_availability_domains" "ads" {
 }
 
 # AMD Micro (lt) - Jumphost / Tailscale Exit Node
+# VM.Standard.E2.1.Micro는 고정 사양 (1/8 OCPU, 1GB RAM) — shape_config 불필요
 resource "oci_core_instance" "lt" {
   compartment_id      = var.compartment_ocid
   display_name        = "lt"
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   shape               = "VM.Standard.E2.1.Micro"
 
-  shape_config {
-    ocpus         = 0.12
-    memory_in_gbs = 1
-  }
-
   source_details {
     source_type             = "image"
     source_id               = data.oci_core_images.ubuntu_amd.images[0].id
-    boot_volume_size_in_gbs = 47
+    boot_volume_size_in_gbs = 50
   }
 
   create_vnic_details {
@@ -56,7 +52,7 @@ resource "oci_core_instance" "brla" {
   source_details {
     source_type             = "image"
     source_id               = data.oci_core_images.ubuntu_arm.images[0].id
-    boot_volume_size_in_gbs = 47
+    boot_volume_size_in_gbs = 50
   }
 
   create_vnic_details {
