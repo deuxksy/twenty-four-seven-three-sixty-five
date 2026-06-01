@@ -74,7 +74,7 @@ Tailscale 내장 HTTPS 사용. Let's Encrypt 자동 발급/갱신.
 | 서비스 | URL |
 | :--- | :--- |
 | code-server | `https://brla.bun-bull.ts.net:8080` |
-| Hermes | `https://brla.bun-bull.ts.net:3000` |
+| Hermes | `https://brla.bun-bull.ts.net:8642` (Gateway), `:9119` (Dashboard) |
 
 Ansible에서 `tailscale cert <hostname>.bun-bull.ts.net` 으로 인증서 발급 후 컨테이너에 경로 지정.
 인증서 경로: `/etc/tailscale/<hostname>.bun-bull.ts.net.{crt,key}`
@@ -110,7 +110,7 @@ Ansible에서 `tailscale cert <hostname>.bun-bull.ts.net` 으로 인증서 발�
 | `tailscale` | lt, brla | Tailscale 설정, exit node (lt만), HTTPS cert (brla만) |
 | `docker` | brla | Docker Engine + Compose 설치, Block Volume /data 마운트 |
 | `code-server` | brla | code-server 컨테이너 (codercom/code-server:latest, user 1000:1000) |
-| `hermes` | brla | Hermes AI Agent 컨테이너 (이미지 빌드 필요) |
+| `hermes` | brla | Hermes AI Agent 컨테이너 (nousresearch/hermes-agent:latest, gateway + dashboard) |
 
 ## 디렉토리 구조
 

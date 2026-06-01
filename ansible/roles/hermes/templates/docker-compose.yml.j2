@@ -1,12 +1,14 @@
 services:
   hermes:
-    image: {{ hermes_image | default('hermes:latest') }}
+    image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    command: gateway run
     ports:
-      - "3000:3000"
+      - "8642:8642"
+      - "9119:9119"
     volumes:
-      - /data/hermes/data:/app/data
-      - /data/hermes/config:/app/config
+      - /data/hermes:/opt/data
     environment:
       - TZ=Asia/Seoul
+      - HERMES_DASHBOARD=1

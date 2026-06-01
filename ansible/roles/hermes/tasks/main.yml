@@ -1,15 +1,11 @@
 # ansible/roles/hermes/tasks/main.yml
 
-- name: Hermes 디렉토리 생성
+- name: Hermes 데이터 디렉토리 생성
   file:
-    path: "{{ item }}"
+    path: /data/hermes
     state: directory
     owner: ubuntu
     group: ubuntu
-  loop:
-    - /data/hermes
-    - /data/hermes/data
-    - /data/hermes/config
 
 - name: Hermes Docker Compose 파일 생성
   template:
@@ -17,6 +13,20 @@
     dest: /data/hermes/docker-compose.yml
     owner: ubuntu
     group: ubuntu
+
+- name: Hermes 이미지 pull
+  shell: docker pull nousresearch/hermes-agent:latest
+  become: yes
+
+- name: Hermes 초기 설정 여부 확인
+  stat:
+    path: /data/hermes/.env
+  register: hermes_env
+
+- name: Hermes setup 실행 (최초 1회)
+  shell: docker run -it --rm -v /data/hermes:/opt/data nousresearch/hermes-agent setup
+  become: yes
+  when: not hermes_env.stat.exists
 
 - name: Hermes 컨테이너 시작
   shell: docker compose up -d
