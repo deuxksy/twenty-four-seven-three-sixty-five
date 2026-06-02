@@ -36,6 +36,15 @@ ansible-playbook playbook-brla.yml     # ARM A1(brla): Docker + 서비스 배포
 
 # 전체 배포 (setup.sh)
 bash setup.sh
+
+# SSH 접속
+ssh ubuntu@193.123.246.91                                              # lt 직접
+ssh -o ProxyJump=ubuntu@193.123.246.91 ubuntu@100.99.163.97            # brla (lt 경유)
+
+# 서비스 검증 (brla에서)
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway
+curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
 ```
 
 ## Architecture
@@ -91,6 +100,9 @@ bash setup.sh
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - Block Volume `/data` 마운트 후 code-server 컨테이너에 `user: "1000:1000"` 필요
 - Hermes 최초 배포 시 API 키 입력 필요 → `/data/hermes/.env`에 `ANTHROPIC_API_KEY` 등 사전 작성하면 setup 생략 가능
+- Hermes 컨테이너는 UID 10000으로 `/data/hermes` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
+- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
+- Hermes AI: Anthropic 호환 API, base URL `http://ai` (Tailscale Aperture), model `glm-5-turbo`
 
 ## Directory Structure
 
