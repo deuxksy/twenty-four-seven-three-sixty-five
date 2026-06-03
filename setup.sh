@@ -18,15 +18,18 @@ sops-dec
 echo "🧠 2단계: 변수 로드..."
 sops-load
 
+# 부모 셸에서 상속된 OCI_PRIVATE_KEY 제거 (PEM은 secrets/에서 별도 관리)
+unset OCI_PRIVATE_KEY
+
 echo "🔒 3단계: 평문 .env 제거..."
 #rm -f .env
 
 echo "📂 4단계: OpenTofu 디렉토리로 이동..."
 cd opentofu
 
-echo "🔑 5단계: OCI API 키 추출..."
+echo "🔑 5단계: OCI API 키 복호화..."
 mkdir -p .oci
-echo -e "$OCI_PRIVATE_KEY" > .oci/oci_api_key.pem
+sops -d ../secrets/oci_api_key.pem.sops > .oci/oci_api_key.pem
 chmod 600 .oci/oci_api_key.pem
 
 echo "📝 6단계: terraform.tfvars 자동 생성..."
@@ -41,9 +44,13 @@ tailscale_auth_key   = "${TAILSCALE_AUTH_KEY}"
 ssh_public_key       = "${OCI_SSH_PUBLIC_KEY}"
 EOF
 
-echo "🚀 7단계: OpenTofu 인프라 확인..."
+echo "🚀 7단계: OpenTofu 인프라 배포..."
 tofu init
 tofu plan
-# tofu apply -auto-approve
+tofu apply -auto-approve
 
-echo "✅ 완료: 모든 작업이 성공적으로 처리되었습니다."
+echo "📋 8단계: Ansible inventory 생성..."
+tofu output -raw ansible_inventory_ini > ../ansible/inventory/hosts.ini
+
+echo "✅ 완료: 인프라 프로비저닝 + inventory 생성 완료"
+echo "👉 다음: cd ../ansible && ansible-playbook playbook-lt.yml && ansible-playbook playbook-brla.yml"

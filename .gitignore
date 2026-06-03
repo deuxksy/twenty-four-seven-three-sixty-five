@@ -7,6 +7,7 @@ CHANGELOG.md
 .terraform
 .env
 keys.txt
+secrets/oci_api_key.pem
 terraform.tfvars
 # Claude Code 관련 디렉토리
 .omc/
