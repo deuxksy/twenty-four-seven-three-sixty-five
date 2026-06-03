@@ -4,7 +4,7 @@ services:
     container_name: code-server
     restart: unless-stopped
     user: "1001:1001"
-    command: --auth password
+    command: --auth password /home/coder/git
     ports:
       - "8080:8080"
     volumes:

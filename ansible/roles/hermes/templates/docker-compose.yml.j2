@@ -3,13 +3,13 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    network_mode: host
     command: gateway run
-    ports:
-      - "8642:8642"
-      - "9119:9119"
     volumes:
       - /data/hermes/data:/opt/data
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_INSECURE=1
+      - DISCORD_BOT_TOKEN={{ lookup('env', 'DISCORD_BOT_TOKEN') }}
+      - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
