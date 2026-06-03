@@ -40,18 +40,10 @@
     mode: "0644"
   when: not hermes_env.stat.exists
 
-- name: Hermes .hermes 설정 디렉토리 생성
-  file:
-    path: /data/hermes/data/.hermes
-    state: directory
-    owner: "10000"
-    group: "10000"
-    mode: "0755"
-
 - name: Hermes config.yaml 생성
   template:
     src: config.yaml.j2
-    dest: /data/hermes/data/.hermes/config.yaml
+    dest: /data/hermes/data/config.yaml
     owner: "10000"
     group: "10000"
     mode: "0644"
