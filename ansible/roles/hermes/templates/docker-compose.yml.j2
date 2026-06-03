@@ -6,10 +6,14 @@ services:
     network_mode: host
     command: gateway run
     volumes:
-      - /data/hermes/data:/opt/data
+      - /data/hermes/data/.env:/opt/data/.env:ro
+      - /data/hermes/data/config.yaml:/opt/data/config.yaml:ro
+      - /data/hermes/data/.hermes:/opt/data/.hermes:ro
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_INSECURE=1
       - DISCORD_BOT_TOKEN={{ lookup('env', 'DISCORD_BOT_TOKEN') }}
       - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
+      - ANTHROPIC_API_KEY={{ lookup('env', 'ANTHROPIC_API_KEY') }}
+      - ANTHROPIC_API_BASE={{ lookup('env', 'ANTHROPIC_API_BASE') }}

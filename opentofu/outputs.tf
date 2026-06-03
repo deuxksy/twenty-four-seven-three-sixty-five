@@ -20,7 +20,7 @@ output "ansible_inventory_ini" {
     lt ansible_host=${oci_core_instance.lt.public_ip} ansible_user=ubuntu
 
     [brla]
-    brla ansible_host=${oci_core_instance.brla.private_ip} ansible_user=ubuntu ansible_proxy_jump=lt
+    brla ansible_host=${oci_core_instance.brla.private_ip} ansible_user=ubuntu ansible_ssh_common_args="-o StrictHostKeyChecking=no -o ProxyJump=ubuntu@${oci_core_instance.lt.public_ip}"
 
     [all:children]
     lt
