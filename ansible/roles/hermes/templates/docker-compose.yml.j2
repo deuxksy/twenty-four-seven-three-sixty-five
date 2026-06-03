@@ -13,6 +13,7 @@ services:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_INSECURE=1
+      - API_SERVER_KEY={{ lookup('env', 'HERMES_API_SERVER_KEY') }}
       - DISCORD_BOT_TOKEN={{ lookup('env', 'DISCORD_BOT_TOKEN') }}
       - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
       - ANTHROPIC_API_KEY={{ lookup('env', 'ANTHROPIC_API_KEY') }}
