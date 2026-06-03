@@ -1,7 +1,9 @@
 # Hermes Agent config - Ansible 자동 생성
 model:
   default: ark-code-latest
-  base_url: https://ark.ap-southeast.bytepluses.com/api/coding
+  provider: custom
+  base_url: https://ark.ap-southeast.bytepluses.com/api/coding/v1
+  api_key: {{ lookup('env', 'ANTHROPIC_API_KEY') }}
 
 terminal:
   backend: local
