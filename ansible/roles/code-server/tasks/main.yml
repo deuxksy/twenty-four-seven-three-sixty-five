@@ -7,6 +7,13 @@
     owner: ubuntu
     group: ubuntu
 
+- name: code-server 데이터 디렉토리 생성
+  file:
+    path: /data/code-server/data
+    state: directory
+    owner: "1001"
+    group: "1001"
+
 - name: code-server Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2

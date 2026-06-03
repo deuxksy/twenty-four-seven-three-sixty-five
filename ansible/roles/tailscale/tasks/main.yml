@@ -52,8 +52,3 @@
   command: tailscale serve --bg 8080
   become: true
   when: not tailscale_exit_node | bool
-
-- name: Tailscale serve 설정 (/hermes → Hermes dashboard)
-  command: tailscale serve --bg --set-path /hermes 9119
-  become: true
-  when: not tailscale_exit_node | bool

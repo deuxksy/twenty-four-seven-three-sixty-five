@@ -8,7 +8,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /data/code-server:/home/coder
+      - /data/code-server/data:/home/coder
     environment:
       - PASSWORD={{ code_server_password | default('changeme') }}
       - TZ=Asia/Seoul
