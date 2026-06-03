@@ -1,10 +1,16 @@
 # Hermes Agent config - Ansible 자동 생성
 model:
-  default: glm-5-turbo
-  base_url: http://ai
+  default: ark-code-latest
+  base_url: https://ark.ap-southeast.bytepluses.com/api/coding
 
 terminal:
   backend: local
 
-dashboard:
-  public_url: "https://brla.bun-bull.ts.net/hermes"
+approvals:
+  mode: yolo
+
+gateway:
+  platforms:
+    discord:
+      extra:
+        slash_commands: false
