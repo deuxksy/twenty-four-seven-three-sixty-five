@@ -44,5 +44,5 @@
     --key-file=/var/lib/tailscale/certs/{{ ts_dns.stdout }}.key
   args:
     creates: "/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt"
-  become: yes
+  become: true
   when: not tailscale_exit_node | bool

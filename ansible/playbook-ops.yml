@@ -1,0 +1,123 @@
+# ansible/playbook-ops.yml
+# 운영 관리: reboot, system-update, docker-update, health-check
+
+- name: Reboot work nodes (brla)
+  hosts: brla
+  become: yes
+  tags: reboot
+  tasks:
+    - name: 재부팅 전 알림
+      debug:
+        msg: "{{ inventory_hostname }} 재부팅 예정..."
+
+    - name: 재부팅
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        connect_timeout: 10
+        pre_reboot_delay: 0
+
+- name: Reboot mgmt node (lt)
+  hosts: lt
+  become: yes
+  tags: reboot
+  tasks:
+    - name: 재부팅 전 알림
+      debug:
+        msg: "{{ inventory_hostname }} 재부팅 예정..."
+
+    - name: 재부팅
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        connect_timeout: 10
+        pre_reboot_delay: 0
+
+- name: System update (apt)
+  hosts: all
+  become: yes
+  tags: system-update
+  tasks:
+    - name: apt 업데이트 캐시
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: 업데이트 가능 패키지 확인
+      shell: apt-cache show '{apt::Upgradeable}' | sort
+      register: upgradable
+      changed_when: false
+
+    - name: 업데이트 가능 패키지 출력
+      debug:
+        msg: "{{ inventory_hostname }}: {{ upgradable.stdout_lines | length }}개 업데이트 가능\n{{ upgradable.stdout_lines | join('\n') }}"
+      when: upgradable.stdout_lines | length > 0
+
+    - name: 업데이트 가능 패키지 없음 알림
+      debug:
+        msg: "{{ inventory_hostname }}: 업데이트 가능 패키지 없음"
+      when: upgradable.stdout_lines | length == 0
+
+    - name: 시스템 업그레이드
+      apt:
+        upgrade: dist
+        autoclean: yes
+        autoremove: yes
+
+- name: Docker 이미지 업데이트
+  hosts: brla
+  become: yes
+  tags: docker-update
+  tasks:
+    - name: code-server 소유권 변경 (ubuntu UID 1001)
+      ansible.builtin.file:
+        path: /data/code-server
+        owner: ubuntu
+        group: ubuntu
+        state: directory
+        recurse: yes
+
+    - name: code-server 이미지 pull
+      community.docker.docker_image:
+        name: codercom/code-server:latest
+        source: pull
+        force_source: yes
+
+    - name: Hermes 이미지 pull
+      community.docker.docker_image:
+        name: nousresearch/hermes-agent:latest
+        source: pull
+        force_source: yes
+
+    - name: code-server 컨테이너 재시작 (최신 이미지 적용)
+      community.docker.docker_compose_v2:
+        project_src: /data/code-server
+        state: restarted
+        services:
+          - code-server
+
+    - name: Hermes 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/hermes
+        state: restarted
+        services:
+          - hermes
+
+- name: Health check
+  hosts: all
+  tags: health
+  gather_facts: no
+  tasks:
+    - name: 가동 시간 확인
+      command: uptime
+      register: uptime_result
+
+    - name: 시스템 부하 상태
+      shell: uptime | awk -F'load average:' '{print $2}'
+      register: load_result
+
+    - name: 디스크 사용량
+      shell: df -h / | awk 'NR==2 {print $5}'
+      register: disk_result
+
+    - name: health 출력
+      debug:
+        msg: "{{ inventory_hostname }} | Uptime: {{ uptime_result.stdout }} | Load: {{ load_result.stdout }} | Disk: {{ disk_result.stdout }}"

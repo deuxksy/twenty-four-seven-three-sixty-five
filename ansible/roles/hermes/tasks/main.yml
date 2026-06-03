@@ -7,6 +7,14 @@
     owner: ubuntu
     group: ubuntu
 
+- name: Hermes 실제 데이터 디렉토리 생성 (컨테이너 볼륨)
+  file:
+    path: /data/hermes/data
+    state: directory
+    owner: "10000"
+    group: "10000"
+    mode: "0755"
+
 - name: Hermes Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2
@@ -20,11 +28,11 @@
 
 - name: Hermes 초기 설정 여부 확인
   stat:
-    path: /data/hermes/.env
+    path: /data/hermes/data/.env
   register: hermes_env
 
 - name: Hermes setup 실행 (최초 1회)
-  shell: docker run -it --rm -v /data/hermes:/opt/data nousresearch/hermes-agent setup
+  shell: docker run -it --rm -v /data/hermes/data:/opt/data nousresearch/hermes-agent setup
   become: yes
   when: not hermes_env.stat.exists
 
