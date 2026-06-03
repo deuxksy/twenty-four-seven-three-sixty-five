@@ -26,15 +26,35 @@
   shell: docker pull nousresearch/hermes-agent:latest
   become: yes
 
-- name: Hermes 초기 설정 여부 확인
+- name: Hermes .env 존재 확인
   stat:
     path: /data/hermes/data/.env
   register: hermes_env
 
-- name: Hermes setup 실행 (최초 1회)
-  shell: docker run -it --rm -v /data/hermes/data:/opt/data nousresearch/hermes-agent setup
-  become: yes
+- name: Hermes .env 생성 (최초 1회)
+  template:
+    src: env.j2
+    dest: /data/hermes/data/.env
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
   when: not hermes_env.stat.exists
+
+- name: Hermes .hermes 설정 디렉토리 생성
+  file:
+    path: /data/hermes/data/.hermes
+    state: directory
+    owner: "10000"
+    group: "10000"
+    mode: "0755"
+
+- name: Hermes config.yaml 생성
+  template:
+    src: config.yaml.j2
+    dest: /data/hermes/data/.hermes/config.yaml
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
 
 - name: Hermes 컨테이너 시작
   shell: docker compose up -d

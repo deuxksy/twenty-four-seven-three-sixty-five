@@ -46,3 +46,14 @@
     creates: "/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt"
   become: true
   when: not tailscale_exit_node | bool
+
+# Tailscale Serve (brla만) - HTTPS 라우팅
+- name: Tailscale serve 설정 (/ → code-server)
+  command: tailscale serve --bg 8080
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve 설정 (/hermes → Hermes dashboard)
+  command: tailscale serve --bg --set-path /hermes 9119
+  become: true
+  when: not tailscale_exit_node | bool
