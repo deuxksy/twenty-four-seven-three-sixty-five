@@ -125,7 +125,9 @@ graph TD
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
 - Hermes AI: Ark Coding Plan provider, base URL `https://ark.ap-southeast.bytepluses.com/api/coding/v1`, model `ark-code-latest`
-- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
+- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
+- Hermes Git 백업: `deuxksy/ai-brla` repo에 하루 4회 자동 백업 (cron: 03:10, 09:10, 15:10, 21:10). SQL dump로 SQLite 백업. `GITHUB_HERMES_TOKEN` 필요 (`.env.sops`에서 SOPS 복호화)
+- SSH IdentitiesOnly: 로컬 SSH config에 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` 설정 시 OCI 인스턴스(AI 키) 접속 불가 → `ansible/ssh_config` 오버라이드로 해결. Ansible 실행 시 `ANSIBLE_SSH_ARGS="-F ./ssh_config"` 사용
 
 ## Directory Structure
 
@@ -153,6 +155,7 @@ ansible/                 # Ansible
     ├── docker/          # Docker Engine + Compose, /data 마운트
     ├── code-server/     # codercom/code-server:latest (user 1000:1000)
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run
-        ├── data/          # 컨테이너 볼륨 (실제 데이터)
-        └── docker-compose.yml  # Ansible 생성
+        ├── files/gitignore    # 백업 제외 규칙
+        ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)
+        └── templates/docker-compose.yml.j2  # Ansible 생성
 ```
