@@ -1,0 +1,33 @@
+#!/bin/bash
+# Hermes 데이터 Git 백업 스크립트
+# Ansible 자동 생성 — 수정 금지
+# cron: 하루 4회 (03:10, 09:10, 15:10, 21:10)
+
+set -euo pipefail
+cd /data/hermes/data
+
+# SQL 덤프
+for db in state.db response_store.db kanban.db; do
+    [ -f "$db" ] || continue
+    python3 -c "
+import sqlite3
+conn = sqlite3.connect('${db}')
+with open('${db}.sql', 'w') as f:
+    for line in conn.iterdump():
+        f.write(line + '\n')
+conn.close()
+"
+done
+
+# 변경사항 스테이징
+git add -A
+
+# 변경 없으면 종료
+if git diff --cached --quiet; then
+    exit 0
+fi
+
+# 커밋 & 푸시
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M")
+git commit -m "backup: ${TIMESTAMP}" --author="{{ git_user_name }} <{{ git_user_email }}>"
+git push origin main

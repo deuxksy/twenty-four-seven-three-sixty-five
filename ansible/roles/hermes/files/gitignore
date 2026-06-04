@@ -1,0 +1,44 @@
+# Cache
+.cache/
+models_dev_cache.json
+audio_cache/
+image_cache/
+cache/
+
+# Runtime
+*.lock
+*.pid
+gateway.lock
+gateway.pid
+auth.lock
+kanban.db.init.lock
+
+# SQLite binary (SQL dump로 대체)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+logs/
+
+# Backup
+*.bak*
+.bak/
+
+# Temp
+sandboxes/
+home/
+bin/
+skins/
+.local/
+.install_method
+.skills_prompt_snapshot.json
+
+# Env (secrets)
+.env
+auth.json
+
+# Bundled skills (regenerable)
+skills/*
+!skills/.bundled_manifest
+!skills/.curator_state

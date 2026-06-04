@@ -53,3 +53,44 @@
   args:
     chdir: /data/hermes
   become: yes
+
+# --- Git 백업 설정 ---
+
+- name: Git 글로벌 설정 (root)
+  git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop:
+    - { key: "user.name", value: "{{ git_user_name | default('Crong') }}" }
+    - { key: "user.email", value: "{{ git_user_email | default('deuxksy@gmail.com') }}" }
+    - { key: "safe.directory", value: "/data/hermes/data" }
+
+- name: Hermes 데이터 Git 초기화
+  shell: git init || true
+  args:
+    chdir: /data/hermes/data
+
+- name: Hermes .gitignore 배포
+  copy:
+    src: gitignore
+    dest: /data/hermes/data/.gitignore
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
+
+- name: Hermes backup 스크립트 배포
+  template:
+    src: backup.sh.j2
+    dest: /data/hermes/backup.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hermes backup cron 설정 (하루 4회)
+  cron:
+    name: "hermes-backup"
+    minute: "10"
+    hour: "3,9,15,21"
+    job: "/data/hermes/backup.sh >> /data/hermes/backup.log 2>&1"
+    user: root
