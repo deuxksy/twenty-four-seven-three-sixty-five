@@ -1,7 +1,7 @@
 # Ansible 재적용 — 최신 코드 반영 + 배포 검증
 
 > **Date**: 2026-06-04
-> **Status**: Approved
+> **Status**: Completed
 > **Scope**: 기존 인프라에 Ansible Playbook 재실행하여 최신 설정 반영
 
 ## 배경
