@@ -34,6 +34,21 @@ resource "oci_core_instance" "lt" {
     }))
   }
 
+  # 인스턴스 destroy 시 Tailscale에서 기존 노드 자동 삭제 (재생성 시 hostname 중복 방지)
+  provisioner "local-exec" {
+    when = destroy
+    command = <<-EOT
+      DEVICE_ID=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/${var.tailscale_tailnet}/devices" \
+        -u "${var.tailscale_api_key}:" \
+        | jq -r '.devices[] | select(.hostname=="lt") | .id // empty' | head -1)
+      if [ -n "$DEVICE_ID" ]; then
+        echo "Deleting Tailscale node lt ($DEVICE_ID)"
+        curl -sf -X DELETE "https://api.tailscale.com/api/v2/device/$DEVICE_ID" \
+          -u "${var.tailscale_api_key}:"
+      fi
+    EOT
+  }
+
   preserve_boot_volume = false
 }
 
@@ -66,6 +81,21 @@ resource "oci_core_instance" "brla" {
     user_data           = base64encode(templatefile("${path.module}/cloud-init-brla.yaml", {
       tailscale_auth_key = var.tailscale_auth_key
     }))
+  }
+
+  # 인스턴스 destroy 시 Tailscale에서 기존 노드 자동 삭제 (재생성 시 hostname 중복 방지)
+  provisioner "local-exec" {
+    when = destroy
+    command = <<-EOT
+      DEVICE_ID=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/${var.tailscale_tailnet}/devices" \
+        -u "${var.tailscale_api_key}:" \
+        | jq -r '.devices[] | select(.hostname=="brla") | .id // empty' | head -1)
+      if [ -n "$DEVICE_ID" ]; then
+        echo "Deleting Tailscale node brla ($DEVICE_ID)"
+        curl -sf -X DELETE "https://api.tailscale.com/api/v2/device/$DEVICE_ID" \
+          -u "${var.tailscale_api_key}:"
+      fi
+    EOT
   }
 
   preserve_boot_volume = false

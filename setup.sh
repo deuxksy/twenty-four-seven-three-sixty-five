@@ -41,6 +41,8 @@ oci_private_key_path = "$(pwd)/.oci/oci_api_key.pem"
 compartment_ocid     = "${OCI_COMPARTMENT_OCID}"
 oci_region           = "${OCI_REGION}"
 tailscale_auth_key   = "${TAILSCALE_AUTH_KEY}"
+tailscale_api_key    = "${TAILSCALE_API_KEY}"
+tailscale_tailnet    = "${TAILSCALE_TAILNET}"
 ssh_public_key       = "${OCI_SSH_PUBLIC_KEY}"
 EOF
 

@@ -8,4 +8,4 @@ packages:
 
 runcmd:
   - curl -fsSL https://tailscale.com/install.sh | sh
-  - tailscale up --authkey=${tailscale_auth_key} --hostname=brla
+  - tailscale up --authkey=${tailscale_auth_key} --hostname=brla --advertise-tags=tag:oci
