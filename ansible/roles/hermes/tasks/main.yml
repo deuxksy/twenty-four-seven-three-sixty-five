@@ -79,6 +79,22 @@
     group: "10000"
     mode: "0644"
 
+- name: GitHub remote 등록
+  shell: >
+    git remote get-url origin 2>/dev/null ||
+    git remote add origin https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
+  args:
+    chdir: /data/hermes/data
+  when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
+
+- name: 초기 커밋 + push (최초 1회)
+  shell: >
+    git add -A &&
+    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }} <{{ git_user_email | default('deuxksy@gmail.com') }}>" && git push -u origin main)
+  args:
+    chdir: /data/hermes/data
+  when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
+
 - name: Hermes backup 스크립트 배포
   template:
     src: backup.sh.j2
