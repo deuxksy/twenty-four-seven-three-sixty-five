@@ -44,13 +44,14 @@ ansible-playbook playbook-ops.yml --tags health          # health check (uptime,
 # 전체 배포 (setup.sh)
 bash setup.sh
 
-# SSH 접속
-ssh ubuntu@193.123.246.91                                              # lt 직접
-ssh -o ProxyJump=ubuntu@193.123.246.91 ubuntu@100.99.163.97            # brla (lt 경유)
+# SSH 접속 (IP는 inventory에서 동적 획득)
+LT_IP=$(grep 'ansible_host=' ansible/inventory/hosts.ini | head -1 | sed 's/.*ansible_host=\([^ ]*\).*/\1/')
+BRLA_IP=$(grep 'ansible_host=' ansible/inventory/hosts.ini | tail -1 | sed 's/.*ansible_host=\([^ ]*\).*/\1/')
+ssh ubuntu@$LT_IP                                                     # lt 직접
+ssh -o ProxyJump=ubuntu@$LT_IP ubuntu@$BRLA_IP                        # brla (lt 경유)
 
 # 서비스 검증 (brla에서)
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
-curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway
 curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
 ```
 
@@ -127,7 +128,7 @@ graph TD
 - Hermes AI: Ark Coding Plan provider, base URL `https://ark.ap-southeast.bytepluses.com/api/coding/v1`, model `ark-code-latest`
 - Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
 - Hermes Git 백업: `deuxksy/ai-brla` repo에 하루 4회 자동 백업 (cron: 03:10, 09:10, 15:10, 21:10). SQL dump로 SQLite 백업. `GITHUB_HERMES_TOKEN` 필요 (`.env.sops`에서 SOPS 복호화)
-- SSH IdentitiesOnly: 로컬 SSH config에 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` 설정 시 OCI 인스턴스(AI 키) 접속 불가 → `ansible/ssh_config` 오버라이드로 해결. Ansible 실행 시 `ANSIBLE_SSH_ARGS="-F ./ssh_config"` 사용
+- SSH IdentitiesOnly: 글로벌 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` + `IdentityFile ~/.ssh/AI/id_ed25519` 로 해결. 별도 `ansible/ssh_config` 불필요
 - Docker 로그 로테이션: `/etc/docker/daemon.json`으로 `max-size: 10m`, `max-file: 3`. **신규 컨테이너에만 적용** — 기존 컨테이너는 `docker compose down && up`으로 재생성 필요
 - IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), code-server 포트 `8080` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)

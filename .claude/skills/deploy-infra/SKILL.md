@@ -19,8 +19,8 @@ OCI Free-Tier 인프라(lt + brla)를 처음부터 재배포하거나 변경사�
 
 ```bash
 source .env.local    # 함수 + alias 로드
-sops-dec             # .env.sops → .env 복호화
-sops-load            # .env 변수를 쉘 환경에 주입
+dec                  # .env.sops → .env 복호화
+load                 # .env 변수를 쉘 환경에 주입
 ```
 
 ### 2. OpenTofu 프로비저닝
@@ -41,15 +41,14 @@ chmod 600 .oci/oci_api_key.pem
 ### 3. Ansible 인벤토리 생성
 
 ```bash
-cd ansible
-tofu output -raw ansible_inventory_ini > inventory/hosts.ini
+cd opentofu
+tofu output -raw ansible_inventory_ini > ../ansible/inventory/hosts.ini
 ```
 
 ### 4. Ansible 설정 적용
 
 ```bash
-# IdentitiesOnly 충돌 방지용 ssh_config 사용
-export ANSIBLE_SSH_ARGS="-F ./ssh_config"
+cd ansible
 
 # lt: Tailscale exit node
 ansible-playbook playbook-lt.yml
