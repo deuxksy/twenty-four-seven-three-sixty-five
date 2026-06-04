@@ -102,14 +102,14 @@ graph TD
 | `oci_fingerprint` | OCI API 키 |
 | `oci_private_key_path` | `.env` → PEM 추출 |
 | `compartment_ocid` | OCI 콘솔 |
-| `oci_region` | 기본값 `ap`-chuncheon-1` |
+| `oci_region` | 기본값 `ap-chuncheon-1` |
 | `tailscale_auth_key` | Tailscale |
 | `ssh_public_key` | 로컬 SSH 공개키 |
 
 ## Notes
 
 - `setup.sh`의 `rm -f .env` 라인이 현재 주석 처리됨 (보안상 활성화 권장)
-- `setup.sh`에서 `tofu init`/`tofu plan`은 자동 실행, `tofu apply`는 주석 처리됨 (수동 확인 후 실행)
+- `setup.sh`에서 `tofu init`/`tofu plan`/`tofu apply` 자동 실행 (전체 프로비저닝)
 - `.env.local`은 SOPS 유틸리티 (함수 + alias: `dec`, `enc`, `load`). `source .env.local`로 로드. `setup.sh`도 내부적으로 호출
 - 인프라 변경 후 `docs/superpowers/specs/` 스펙과 실제 코드 동기화 필수
 
@@ -120,11 +120,12 @@ graph TD
 - Tailscale 인증서 경로는 `/var/lib/tailscale/certs/` (not `/etc/tailscale/`)
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - code-server 컨테이너는 ubuntu UID 1001과 매칭 (`user: "1001:1001"`) → 호스트에서 파일 조작 가능 (sudo 불필요)
-- Hermes 최초 배포 시 API 키 입력 필요 → `/data/hermes/.env`에 `ANTHROPIC_API_KEY` 등 사전 작성하면 setup 생략 가능
+- Hermes API 키/토큰은 docker-compose `environment:`에서 Ansible로 직접 주입 (별도 `.env` 파일 사전 작성 불필요)
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
-- Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터), `/data/hermes/docker-compose.yml` (Ansible 생성)
+- Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
-- Hermes AI: Anthropic 호환 API, base URL `http://ai` (Tailscale Aperture), model `glm-5-turbo`
+- Hermes AI: Ark Coding Plan provider, base URL `https://ark.ap-southeast.bytepluses.com/api/coding/v1`, model `ark-code-latest`
+- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
 
 ## Directory Structure
 
@@ -137,7 +138,7 @@ opentofu/                # OpenTofu
 ├── vcn.tf               # VCN, Subnets, Security Lists, Gateway
 ├── compute.tf           # AMD Micro (lt) + ARM A1 (brla)
 ├── storage.tf           # Block Volume 64GB + Attachment
-├── outputs.tf           # Ansiblever inventory, output values
+├── outputs.tf           # Ansible inventory, output values
 ├── cloud-init-lt.yaml   # lt: Tailscale + exit node
 └── cloud-init-brla.yaml # brla: Tailscale
 

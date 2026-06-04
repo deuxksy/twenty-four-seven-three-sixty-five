@@ -9,16 +9,23 @@ Web Browser → GitHub Codespaces → OpenTofu/Ansible 배포 → code-server (T
 ## Quick Start
 
 ```bash
-# 1. Codespaces에서 열기 (keys.txt 필요)
-# 2. SOPS 유틸리티 로드
+# 사전 준비: keys.txt (age 개인키)를 프로젝트 루트에 배치
+# 사전 준비: sops, age, tofu (opentofu), ansible 설치
+
+# 1. SOPS 유틸리티 로드
 source .env.local
 
-# 3. 시크릿 복호화 (또는: bash setup.sh 로 전체 배포)
+# 2. 시크릿 복호화
 dec        # .env.sops → .env
 load       # 쉘 환경에 변수 주입
 
-# 4. 전체 배포 (복호화 + tfvars 생성 + tofu)
+# 3. 전체 배포 (복호화 + tfvars 생성 + tofu apply + hosts.ini 생성)
 bash setup.sh
+
+# 4. Ansible 설정 적용
+cd ansible
+ansible-playbook playbook-lt.yml      # lt: Tailscale exit node
+ansible-playbook playbook-brla.yml    # brla: Docker + code-server + Hermes
 ```
 
 ## 구조

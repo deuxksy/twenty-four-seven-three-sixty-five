@@ -6,9 +6,7 @@ services:
     network_mode: host
     command: gateway run
     volumes:
-      - /data/hermes/data/.env:/opt/data/.env:ro
-      - /data/hermes/data/config.yaml:/opt/data/config.yaml:ro
-      - /data/hermes/data/.hermes:/opt/data/.hermes:ro
+      - /data/hermes/data:/opt/data
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
