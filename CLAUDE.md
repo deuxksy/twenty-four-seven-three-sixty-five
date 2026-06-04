@@ -109,13 +109,15 @@ graph TD
 
 ## Notes
 
-- `setup.sh`의 `rm -f .env` 라인이 현재 주석 처리됨 (보안상 활성화 권장)
+- `setup.sh`가 실행 후 `.env`를 자동 삭제함 → Ansible 재실행 시 `sops -d` 재복호화 필요
 - `setup.sh`에서 `tofu init`/`tofu plan`/`tofu apply` 자동 실행 (전체 프로비저닝)
 - `.env.local`은 SOPS 유틸리티 (함수 + alias: `dec`, `enc`, `load`). `source .env.local`로 로드. `setup.sh`도 내부적으로 호출
-- 인프라 변경 후 `docs/superpowers/specs/` 스펙과 실제 코드 동기화 필수
+- 인프라 변경 후 스펙과 실제 코드 동기화 필수
 
 ## Gotchas
 
+- `.env.local`의 `dec`/`load`는 alias — Claude Code Bash(비대화형)에서 인식 안 됨. 직접 함수명 `sops-dec`, `sops-load` 또는 raw `sops -d` 명령 사용
+- cloud-init(`user_data`) 변경 시 OCI 인스턴스 재생성(destroy+recreate) → **Public IP 변경**. cloud-init은 최소화(Tailscale 설치만)하고 설정은 Ansible로 처리
 - `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
 - Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
 - Tailscale 인증서 경로는 `/var/lib/tailscale/certs/` (not `/etc/tailscale/`)
@@ -162,4 +164,8 @@ ansible/                 # Ansible
         ├── files/gitignore    # 백업 제외 규칙
         ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)
         └── templates/docker-compose.yml.j2  # Ansible 생성
+
+.claude/skills/          # Claude Code 스킬
+├── deploy-infra/SKILL.md  # 전체 배포 파이프라인
+└── verify-infra/SKILL.md  # 인프라 상태 검증
 ```
