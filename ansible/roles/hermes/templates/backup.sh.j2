@@ -29,5 +29,5 @@ fi
 
 # 커밋 & 푸시
 TIMESTAMP=$(date +"%Y-%m-%d %H:%M")
-git commit -m "backup: ${TIMESTAMP}" --author="{{ git_user_name }} <{{ git_user_email }}>"
+git commit -m "backup: ${TIMESTAMP}" --author="{{ git_user_name | default('Crong') }} <{{ git_user_email | default('deuxksy@gmail.com') }}>"
 git push origin main
