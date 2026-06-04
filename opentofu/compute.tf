@@ -35,17 +35,18 @@ resource "oci_core_instance" "lt" {
   }
 
   # 인스턴스 destroy 시 Tailscale에서 기존 노드 자동 삭제 (재생성 시 hostname 중복 방지)
+  # destroy provisioner는 var 참조 불가 → 환경변수($${...}) 사용. setup.sh에서 source .env로 주입
   provisioner "local-exec" {
     when = destroy
     command = <<-EOT
-      DEVICE_ID=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/${var.tailscale_tailnet}/devices" \
-        -u "${var.tailscale_api_key}:" \
-        | jq -r '.devices[] | select(.hostname=="lt") | .id // empty' | head -1)
-      if [ -n "$DEVICE_ID" ]; then
+      DEVICE_IDS=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/$${TAILSCALE_TAILNET}/devices" \
+        -u "$${TAILSCALE_API_KEY}:" \
+        | jq -r '.devices[] | select(.hostname=="lt") | .id // empty')
+      for DEVICE_ID in $DEVICE_IDS; do
         echo "Deleting Tailscale node lt ($DEVICE_ID)"
         curl -sf -X DELETE "https://api.tailscale.com/api/v2/device/$DEVICE_ID" \
-          -u "${var.tailscale_api_key}:"
-      fi
+          -u "$${TAILSCALE_API_KEY}:"
+      done
     EOT
   }
 
@@ -84,17 +85,18 @@ resource "oci_core_instance" "brla" {
   }
 
   # 인스턴스 destroy 시 Tailscale에서 기존 노드 자동 삭제 (재생성 시 hostname 중복 방지)
+  # destroy provisioner는 var 참조 불가 → 환경변수($${...}) 사용. setup.sh에서 source .env로 주입
   provisioner "local-exec" {
     when = destroy
     command = <<-EOT
-      DEVICE_ID=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/${var.tailscale_tailnet}/devices" \
-        -u "${var.tailscale_api_key}:" \
-        | jq -r '.devices[] | select(.hostname=="brla") | .id // empty' | head -1)
-      if [ -n "$DEVICE_ID" ]; then
+      DEVICE_IDS=$(curl -sf "https://api.tailscale.com/api/v2/tailnet/$${TAILSCALE_TAILNET}/devices" \
+        -u "$${TAILSCALE_API_KEY}:" \
+        | jq -r '.devices[] | select(.hostname=="brla") | .id // empty')
+      for DEVICE_ID in $DEVICE_IDS; do
         echo "Deleting Tailscale node brla ($DEVICE_ID)"
         curl -sf -X DELETE "https://api.tailscale.com/api/v2/device/$DEVICE_ID" \
-          -u "${var.tailscale_api_key}:"
-      fi
+          -u "$${TAILSCALE_API_KEY}:"
+      done
     EOT
   }
 

@@ -18,9 +18,7 @@ variable "ssh_public_key" {}
 # Tailscale
 variable "tailscale_auth_key" {}
 variable "tailscale_api_key" {}
-variable "tailscale_tailnet" {
-  default = "bun-bull.ts.net"
-}
+variable "tailscale_tailnet" {}
 
 # 네트워크
 variable "vcn_cidr" {

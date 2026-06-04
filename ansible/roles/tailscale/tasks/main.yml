@@ -16,6 +16,7 @@
     --hostname={{ tailscale_hostname }}
     --advertise-exit-node
     --advertise-routes={{ tailscale_advertise_routes }}
+    --advertise-tags=tag:oci
   when: tailscale_exit_node | bool
   notify: restart tailscale
 
@@ -39,9 +40,10 @@
 
 - name: Tailscale 인증서 발급
   command: >
-    tailscale cert {{ ts_dns.stdout }}
+    tailscale cert
     --cert-file=/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt
     --key-file=/var/lib/tailscale/certs/{{ ts_dns.stdout }}.key
+    {{ ts_dns.stdout }}
   args:
     creates: "/var/lib/tailscale/certs/{{ ts_dns.stdout }}.crt"
   become: true
