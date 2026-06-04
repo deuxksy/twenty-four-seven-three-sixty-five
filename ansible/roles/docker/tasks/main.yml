@@ -28,6 +28,22 @@
     groups: docker
     append: yes
 
+- name: Docker daemon.json 배포 (로그 로테이션)
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart docker
+
 - name: Docker 서비스 활성화
   service:
     name: docker
