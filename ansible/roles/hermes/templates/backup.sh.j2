@@ -7,12 +7,13 @@ set -euo pipefail
 cd /data/hermes/data
 
 # SQL 덤프
+mkdir -p sql
 for db in state.db response_store.db kanban.db; do
     [ -f "$db" ] || continue
     python3 -c "
 import sqlite3
 conn = sqlite3.connect('${db}')
-with open('${db}.sql', 'w') as f:
+with open('sql/${db}.sql', 'w') as f:
     for line in conn.iterdump():
         f.write(line + '\n')
 conn.close()
