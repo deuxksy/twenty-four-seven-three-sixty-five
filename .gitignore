@@ -13,5 +13,6 @@ terraform.tfvars
 .omc/
 .omx/
 .remember/
+.serena/
 ansible/inventory/hosts.ini
 .claude/settings.local.json

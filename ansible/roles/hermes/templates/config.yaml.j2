@@ -1,9 +1,18 @@
 # Hermes Agent config - Ansible 자동 생성
+_config_version: 26
 model:
-  default: ark-code-latest
-  provider: custom
-  base_url: https://ark.ap-southeast.bytepluses.com/api/coding/v1
-  api_key: {{ lookup('env', 'ANTHROPIC_API_KEY') }}
+  default: glm-5-turbo
+  provider: custom:aperture
+
+providers: {}
+
+custom_providers:
+- name: aperture
+  base_url: http://ai
+  key_env: ANTHROPIC_API_KEY
+  api_mode: anthropic_messages
+
+timezone: Asia/Seoul
 
 terminal:
   backend: local
@@ -11,12 +20,8 @@ terminal:
 approvals:
   mode: yolo
 
-gateway:
-  platforms:
-    discord:
-      require_mention: false
-      free_response_channels:
-        - "1511797315722149928"
-      reactions: true
-      extra:
-        slash_commands: false
+discord:
+  require_mention: false
+  free_response_channels:
+    - "1511797315722149928"
+  reactions: true
