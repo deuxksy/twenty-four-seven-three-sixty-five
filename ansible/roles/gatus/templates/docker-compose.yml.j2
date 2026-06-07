@@ -3,25 +3,15 @@ services:
     image: twinproduction/gatus:latest
     container_name: gatus
     restart: unless-stopped
-    expose:
-      - "8088"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gatus.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`)"
-      - "traefik.http.routers.gatus.entryPoints=gatus"
-      - "traefik.http.routers.gatus.tls=true"
-      - "traefik.http.routers.gatus-path.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`) && PathPrefix(`/gatus`)"
-      - "traefik.http.routers.gatus-path.entryPoints=websecure"
-      - "traefik.http.routers.gatus-path.tls=true"
-      - "traefik.http.routers.gatus-path.middlewares=strip-gatus"
-      - "traefik.http.middlewares.strip-gatus.stripPrefix.prefixes=/gatus"
+    ports:
+      - "127.0.0.1:8088:8088"
+    networks:
+      - proxy
     volumes:
       - /data/gatus/config.yaml:/config/config.yaml:ro
       - /data/gatus/data:/data
     environment:
       - TZ=Asia/Seoul
-    networks:
-      - proxy
 
 networks:
   proxy:

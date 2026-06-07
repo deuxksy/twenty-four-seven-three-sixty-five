@@ -49,9 +49,34 @@
   become: true
   when: not tailscale_exit_node | bool
 
-# Tailscale Serve 제거 (Traefik이 L7 라우팅 담당)
-- name: Tailscale serve 설정 초기화
+# Tailscale Serve — 포트 기반 라우팅 (brla만)
+- name: Tailscale serve 초기화
   command: tailscale serve reset
   become: true
   failed_when: false
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — Homepage (443)
+  command: tailscale serve --bg --yes http://127.0.0.1:3000
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — code-server (8080)
+  command: tailscale serve --bg --https 8080 --yes http://127.0.0.1:8080
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — gatus (8088)
+  command: tailscale serve --bg --https 8088 --yes http://127.0.0.1:8088
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — beszel (8090)
+  command: tailscale serve --bg --https 8090 --yes http://127.0.0.1:8090
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — hermes (9119)
+  command: tailscale serve --bg --https 9119 --yes http://127.0.0.1:9119
+  become: true
   when: not tailscale_exit_node | bool

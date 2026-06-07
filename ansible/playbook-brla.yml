@@ -9,7 +9,6 @@
         tailscale_exit_node: false
         tailscale_hostname: "brla"
     - role: docker
-    - role: traefik
     - role: code-server
     - role: homepage
     - role: gatus

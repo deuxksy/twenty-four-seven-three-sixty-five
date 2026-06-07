@@ -8,14 +8,8 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
-  code:
-    address: ":8080"
   gatus:
     address: ":8088"
-  beszel:
-    address: ":8090"
-  hermes:
-    address: ":9119"
 
 providers:
   docker:

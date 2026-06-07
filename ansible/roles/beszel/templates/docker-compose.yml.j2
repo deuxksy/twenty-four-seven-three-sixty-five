@@ -3,26 +3,15 @@ services:
     image: docker.io/henrygd/beszel:latest
     container_name: beszel-hub
     restart: unless-stopped
-    expose:
-      - "8090"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.beszel.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`)"
-      - "traefik.http.routers.beszel.entryPoints=beszel"
-      - "traefik.http.routers.beszel.tls=true"
-      - "traefik.http.routers.beszel-path.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`) && PathPrefix(`/beszel`)"
-      - "traefik.http.routers.beszel-path.entryPoints=websecure"
-      - "traefik.http.routers.beszel-path.tls=true"
-      - "traefik.http.routers.beszel-path.middlewares=strip-beszel"
-      - "traefik.http.middlewares.strip-beszel.stripPrefix.prefixes=/beszel"
+    ports:
+      - "127.0.0.1:8090:8090"
+    networks:
+      - proxy
     volumes:
       - /data/beszel/data:/beszel_data
       - /data/beszel/socket:/beszel_socket
     environment:
       - TZ=Asia/Seoul
-      - APP_URL=https://{{ traefik_domain | default('brla.bun-bull.ts.net') }}:8090
-    networks:
-      - proxy
 
 networks:
   proxy:

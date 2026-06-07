@@ -3,17 +3,13 @@ services:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
-    expose:
-      - "3000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.homepage.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`)"
-      - "traefik.http.routers.homepage.entryPoints=websecure"
-      - "traefik.http.routers.homepage.tls=true"
-      - "traefik.http.routers.homepage.priority=1"
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - proxy
     environment:
       TZ: Asia/Seoul
-      HOMEPAGE_ALLOWED_HOSTS: "{{ traefik_domain | default('brla.bun-bull.ts.net') }}"
+      HOMEPAGE_ALLOWED_HOSTS: "{{ caddy_domain | default('brla.bun-bull.ts.net') }}"
       HOMEPAGE_VAR_BESZEL_USERNAME: {{ lookup('env', 'HOMEPAGE_VAR_BESZEL_USERNAME') | to_json }}
       HOMEPAGE_VAR_BESZEL_PASSWORD: {{ lookup('env', 'HOMEPAGE_VAR_BESZEL_PASSWORD') | to_json }}
       HOMEPAGE_VAR_LATITUDE: {{ lookup('env', 'HOMEPAGE_VAR_LATITUDE') | to_json }}
@@ -25,8 +21,6 @@ services:
       - /:/host:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-    networks:
-      - proxy
 
 networks:
   proxy:

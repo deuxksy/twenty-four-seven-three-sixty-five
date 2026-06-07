@@ -4,20 +4,9 @@ services:
     container_name: hermes
     restart: unless-stopped
     command: gateway run
-    expose:
-      - "9119"
     ports:
       - "127.0.0.1:8642:8642"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hermes.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`)"
-      - "traefik.http.routers.hermes.entryPoints=hermes"
-      - "traefik.http.routers.hermes.tls=true"
-      - "traefik.http.routers.hermes-path.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`) && PathPrefix(`/hermes`)"
-      - "traefik.http.routers.hermes-path.entryPoints=websecure"
-      - "traefik.http.routers.hermes-path.tls=true"
-      - "traefik.http.routers.hermes-path.middlewares=strip-hermes"
-      - "traefik.http.middlewares.strip-hermes.stripPrefix.prefixes=/hermes"
+      - "127.0.0.1:9119:9119"
     volumes:
       - /data/hermes/data:/opt/data
     environment:
@@ -29,9 +18,3 @@ services:
       - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
       - ANTHROPIC_API_KEY={{ lookup('env', 'ANTHROPIC_API_KEY') }}
       - ANTHROPIC_API_BASE={{ lookup('env', 'ANTHROPIC_API_BASE') }}
-    networks:
-      - proxy
-
-networks:
-  proxy:
-    external: true
