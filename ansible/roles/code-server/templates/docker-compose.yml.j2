@@ -5,10 +5,27 @@ services:
     restart: unless-stopped
     user: "1001:1001"
     command: --auth password /home/coder/git
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.code-server-path.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`) && PathPrefix(`/code`)"
+      - "traefik.http.routers.code-server-path.entryPoints=websecure"
+      - "traefik.http.routers.code-server-path.tls=true"
+      - "traefik.http.routers.code-server-path.priority=10"
+      - "traefik.http.routers.code-server-path.middlewares=strip-code"
+      - "traefik.http.middlewares.strip-code.stripPrefix.prefixes=/code"
+      - "traefik.http.routers.code-server.rule=Host(`{{ traefik_domain | default('brla.bun-bull.ts.net') }}`)"
+      - "traefik.http.routers.code-server.entryPoints=code"
+      - "traefik.http.routers.code-server.tls=true"
     volumes:
       - /data/code-server/data:/home/coder
     environment:
       - PASSWORD={{ code_server_password | default('changeme') }}
       - TZ=Asia/Seoul
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

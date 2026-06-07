@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 접근 가능한 환경에서 OpenTofu + Ansible로 프로비저닝하고, Tailscale HTTPS로 code-server에 접속해 개발. OpenTofu로 Oracle Cloud 리소스를 관리하고, Ansible로 인스턴스 설정. SOPS(age)로 시크릿을 암호화한다. GitHub Codespaces에서 초기 프로비저닝 후 Tailscale HTTPS로 code-server에 접속한다.
+OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 접근 가능한 환경에서 OpenTofu + Ansible로 프로비저닝하고, Tailscale HTTPS로 서비스에 접근. OpenTofu로 Oracle Cloud 리소스를 관리하고, Ansible로 인스턴스 설정. SOPS(age)로 시크릿을 암호화한다. GitHub Codespaces에서 초기 프로비저닝 후 Tailscale HTTPS로 서비스에 접속한다.
 
 ## Prerequisites
 
@@ -50,13 +50,14 @@ BRLA_IP=$(grep 'ansible_host=' ansible/inventory/hosts.ini | tail -1 | sed 's/.*
 ssh ubuntu@$LT_IP                                                     # lt 직접
 ssh -o ProxyJump=ubuntu@$LT_IP ubuntu@$BRLA_IP                        # brla (lt 경유)
 
-# 서비스 검증 (brla에서)
-curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
-curl -s -o /dev/null -w '%{http_code}' http://localhost:3000           # Homepage
-curl -s -o /dev/null -w '%{http_code}' http://localhost:8088           # Gatus
-curl -s -o /dev/null -w '%{http_code}' http://localhost:8090           # Beszel
-curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway
-curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
+# 서비스 검증 (brla에서 — Traefik 경유)
+curl -sk -o /dev/null -w '%{http_code}' https://localhost/             # Homepage
+curl -sk -o /dev/null -w '%{http_code}' https://localhost/code/        # code-server (base-path)
+curl -sk -o /dev/null -w '%{http_code}' https://localhost:8080/        # code-server (직접)
+curl -sk -o /dev/null -w '%{http_code}' https://localhost:8088/        # Gatus
+curl -sk -o /dev/null -w '%{http_code}' https://localhost:8090/        # Beszel
+curl -sk -o /dev/null -w '%{http_code}' https://localhost:9119/        # Hermes dashboard
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway (host 포트매핑)
 ```
 
 ## Architecture
@@ -69,14 +70,14 @@ graph TD
       SGW[Service Gateway]
 
       subgraph lt-subnet[lt-subnet 10.210.0.0/24]
-        lt[AMD Micro lt<br/>Ubuntu 24.04<br/>Tailscale Exit Node]
+        lt[AMD Micro lt - Ubuntu 24.04 - Tailscale Exit Node]
         lt-sl[lt-sl<br/>SSH 22, Tailscale 41641]
       end
 
       subgraph brla-subnet[brla-subnet 10.210.1.0/24]
-        brla[ARM A1 brla<br/>Ubuntu 24.04 ARM<br/>Docker Compose]
+        brla[ARM A1 brla - Ubuntu 24.04 ARM - Docker Compose]
         brla-sl[brla-sl<br/>Tailscale 41641]
-        BV[Block Volume 64GB<br/>/data]
+        BV[Block Volume 64GB - /data]
       end
 
       IGW --> lt-subnet
@@ -93,7 +94,7 @@ graph TD
 - **SOPS binary 모드**: `.env`에 PEM 키, 멀티라인 값 등 특수문자가 포함되어 `--input-type binary`로 인코딩 문제를 우회함
 - **State Backend**: Cloudflare R2 (S3-compatible). 버킷(`terraform-state`)은 수동 생성
 - **Hostnames**: `lt`(L-T, 조명 로봇), `brla`(BRL-A, 파라솔 로봇) — WALL-E 세계관
-- **HTTPS**: Tailscale 내장 HTTPS (`*.bun-bull.ts.net`)
+- **HTTPS**: Tailscale 인증서 + Traefik L7 리버스 프록시 (`*.bun-bull.ts.net`)
 - **Region**: OCI `ap-chuncheon-1` (춘천)
 
 ## Key Variables
@@ -130,13 +131,21 @@ graph TD
 - Hermes API 키/토큰은 docker-compose `environment:`에서 Ansible로 직접 주입 (별도 `.env` 파일 사전 작성 불필요)
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
-- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
+- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Traefik 내부망)
+- Hermes gateway(8642)는 `127.0.0.1` 포트매핑 유지 (health check용), Dashboard(9119)는 Traefik이 라우팅
 - Hermes AI: Ark Coding Plan provider, base URL `https://ark.ap-southeast.bytepluses.com/api/coding/v1`, model `ark-code-latest`
 - Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
-- Homepage/Gatus 설정은 `~/git/homelab/heritage`의 복사본이며 원본 Heritage 배포는 유지
+- Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
 - Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
-- Homepage/Gatus/Beszel은 Tailscale Serve HTTPS 포트 `3000`, `8088`, `8090`으로 접근. code-server의 Tailscale Serve 루트는 유지
+- Traefik L7 라우팅 (Tailscale Serve 대체): `:443` path-based(Homepage, /code, /gatus, /beszel, /hermes) + 포트 기반(:8080, :8088, :8090, :9119)
+- Traefik은 Docker `proxy` 네트워크로 서비스 자동 발견(라벨 기반), Hermes(host network)는 파일 프로바이더로 라우팅
+- Traefik TLS: Tailscale 인증서(`/var/lib/tailscale/certs/`) 마운트, `watch: true`로 인증서 갱신 시 자동 리로드
 - 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME`/`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치해야 Homepage 위젯이 동작
+- Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
+- Tailscale Serve는 더 이상 사용하지 않음. `tailscale serve reset`으로 초기화. 라우팅은 Traefik이 담당
+- Tailscale 인증서 발급(`tailscale cert`)은 유지 — Traefik이 마운트하여 TLS termination에 사용
+- Homepage `HOMEPAGE_ALLOWED_HOSTS`: Traefik 라우팅 시 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
+- Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 
 ## Directory Structure
 
@@ -160,13 +169,14 @@ ansible/                 # Ansible
 ├── playbook-brla.yml    # brla: Docker + code-server + monitoring + Hermes
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
-    ├── tailscale/       # exit node, IP forwarding, HTTPS cert
-    ├── docker/          # Docker Engine + Compose, /data 마운트
-    ├── code-server/     # codercom/code-server:latest (user 1000:1000)
-    ├── homepage/        # Heritage Homepage 설정 복사본
+    ├── tailscale/       # exit node, IP forwarding, HTTPS cert 발급
+    ├── docker/          # Docker Engine + Compose, /data 마운트, proxy 네트워크
+    ├── traefik/         # L7 리버스 프록시 (Tailscale certs TLS, Docker label 라우팅)
+    ├── code-server/     # codercom/code-server:latest (user 1001:1001, StripPrefix /code)
+    ├── homepage/        # BRL-A 전용 Homepage 설정 (Info, Monitoring, AI, Development)
     ├── gatus/           # Heritage endpoint 설정 복사본, 신규 이력 DB
     ├── beszel/          # 신규 Beszel Hub
-    └── hermes/          # nousresearch/hermes-agent:latest, gateway run
+    └── hermes/          # nousresearch/hermes-agent:latest, gateway run (host network)
         ├── files/gitignore    # 백업 제외 규칙
         ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)
         └── templates/docker-compose.yml.j2  # Ansible 생성
