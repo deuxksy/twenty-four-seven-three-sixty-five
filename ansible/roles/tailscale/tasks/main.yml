@@ -49,23 +49,9 @@
   become: true
   when: not tailscale_exit_node | bool
 
-# Tailscale Serve (brla만) - HTTPS 라우팅
-- name: Tailscale serve 설정 (/ → code-server)
-  command: tailscale serve --bg 8080
+# Tailscale Serve 제거 (Traefik이 L7 라우팅 담당)
+- name: Tailscale serve 설정 초기화
+  command: tailscale serve reset
   become: true
-  when: not tailscale_exit_node | bool
-
-- name: Tailscale serve 설정 (Homepage HTTPS 3000)
-  command: tailscale serve --bg --https=3000 localhost:3000
-  become: true
-  when: not tailscale_exit_node | bool
-
-- name: Tailscale serve 설정 (Gatus HTTPS 8088)
-  command: tailscale serve --bg --https=8088 localhost:8088
-  become: true
-  when: not tailscale_exit_node | bool
-
-- name: Tailscale serve 설정 (Beszel HTTPS 8090)
-  command: tailscale serve --bg --https=8090 localhost:8090
-  become: true
+  failed_when: false
   when: not tailscale_exit_node | bool
