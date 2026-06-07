@@ -52,6 +52,10 @@ ssh -o ProxyJump=ubuntu@$LT_IP ubuntu@$BRLA_IP                        # brla (lt
 
 # 서비스 검증 (brla에서)
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
+curl -s -o /dev/null -w '%{http_code}' http://localhost:3000           # Homepage
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8088           # Gatus
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8090           # Beszel
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway
 curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
 ```
 
@@ -127,14 +131,12 @@ graph TD
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
-- Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `glm-5-turbo`, `api_mode: anthropic_messages`
-- Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
-- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
-- Hermes Git 백업: `deuxksy/ai-brla` repo에 하루 4회 자동 백업 (cron: 03:10, 09:10, 15:10, 21:10). SQL dump로 SQLite 백업. `GITHUB_HERMES_TOKEN` 필요 (`.env.sops`에서 SOPS 복호화)
-- SSH IdentitiesOnly: 글로벌 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` + `IdentityFile ~/.ssh/AI/id_ed25519` 로 해결. 별도 `ansible/ssh_config` 불필요
-- Docker 로그 로테이션: `/etc/docker/daemon.json`으로 `max-size: 10m`, `max-file: 3`. **신규 컨테이너에만 적용** — 기존 컨테이너는 `docker compose down && up`으로 재생성 필요
-- IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), code-server 포트 `8080` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
+- Hermes AI: Ark Coding Plan provider, base URL `https://ark.ap-southeast.bytepluses.com/api/coding/v1`, model `ark-code-latest`
+- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
+- Homepage/Gatus 설정은 `~/git/homelab/heritage`의 복사본이며 원본 Heritage 배포는 유지
+- Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
+- Homepage/Gatus/Beszel은 Tailscale Serve HTTPS 포트 `3000`, `8088`, `8090`으로 접근. code-server의 Tailscale Serve 루트는 유지
+- 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME`/`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치해야 Homepage 위젯이 동작
 
 ## Directory Structure
 
@@ -155,12 +157,15 @@ ansible/                 # Ansible
 ├── ansible.cfg
 ├── inventory/hosts.ini  # tofu output으로 자동 생성
 ├── playbook-lt.yml      # lt: Tailscale exit node
-├── playbook-brla.yml    # brla: Docker + code-server + Hermes
+├── playbook-brla.yml    # brla: Docker + code-server + monitoring + Hermes
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
     ├── tailscale/       # exit node, IP forwarding, HTTPS cert
     ├── docker/          # Docker Engine + Compose, /data 마운트
     ├── code-server/     # codercom/code-server:latest (user 1000:1000)
+    ├── homepage/        # Heritage Homepage 설정 복사본
+    ├── gatus/           # Heritage endpoint 설정 복사본, 신규 이력 DB
+    ├── beszel/          # 신규 Beszel Hub
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run
         ├── files/gitignore    # 백업 제외 규칙
         ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)

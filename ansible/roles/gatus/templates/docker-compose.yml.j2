@@ -1,0 +1,19 @@
+services:
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - /data/gatus/config.yaml:/config/config.yaml:ro
+      - /data/gatus/data:/data
+    environment:
+      - TZ=Asia/Seoul
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    name: monitoring
+    external: true

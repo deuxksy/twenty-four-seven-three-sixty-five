@@ -1,0 +1,29 @@
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      TZ: Asia/Seoul
+      HOMEPAGE_ALLOWED_HOSTS: "brla.bun-bull.ts.net:3000"
+      HOMEPAGE_VAR_KEY_JELLYFIN: {{ lookup('env', 'HOMEPAGE_VAR_KEY_JELLYFIN') | to_json }}
+      HOMEPAGE_VAR_BESZEL_USERNAME: {{ lookup('env', 'HOMEPAGE_VAR_BESZEL_USERNAME') | to_json }}
+      HOMEPAGE_VAR_BESZEL_PASSWORD: {{ lookup('env', 'HOMEPAGE_VAR_BESZEL_PASSWORD') | to_json }}
+      HOMEPAGE_VAR_LATITUDE: {{ lookup('env', 'HOMEPAGE_VAR_LATITUDE') | to_json }}
+      HOMEPAGE_VAR_LONGITUDE: {{ lookup('env', 'HOMEPAGE_VAR_LONGITUDE') | to_json }}
+      HOMEPAGE_VAR_FINNHUB_KEY: {{ lookup('env', 'HOMEPAGE_VAR_FINNHUB_KEY') | to_json }}
+    volumes:
+      - /data/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    name: monitoring
+    external: true

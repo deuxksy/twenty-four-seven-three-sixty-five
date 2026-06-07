@@ -54,3 +54,18 @@
   command: tailscale serve --bg 8080
   become: true
   when: not tailscale_exit_node | bool
+
+- name: Tailscale serve 설정 (Homepage HTTPS 3000)
+  command: tailscale serve --bg --https=3000 localhost:3000
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve 설정 (Gatus HTTPS 8088)
+  command: tailscale serve --bg --https=8088 localhost:8088
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve 설정 (Beszel HTTPS 8090)
+  command: tailscale serve --bg --https=8090 localhost:8090
+  become: true
+  when: not tailscale_exit_node | bool

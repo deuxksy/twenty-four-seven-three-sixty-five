@@ -87,6 +87,24 @@
         source: pull
         force_source: yes
 
+    - name: Homepage 이미지 pull
+      community.docker.docker_image:
+        name: ghcr.io/gethomepage/homepage:latest
+        source: pull
+        force_source: yes
+
+    - name: Gatus 이미지 pull
+      community.docker.docker_image:
+        name: twinproduction/gatus:latest
+        source: pull
+        force_source: yes
+
+    - name: Beszel 이미지 pull
+      community.docker.docker_image:
+        name: docker.io/henrygd/beszel:latest
+        source: pull
+        force_source: yes
+
     - name: code-server 컨테이너 재시작 (최신 이미지 적용)
       community.docker.docker_compose_v2:
         project_src: /data/code-server
@@ -100,6 +118,27 @@
         state: restarted
         services:
           - hermes
+
+    - name: Homepage 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/homepage
+        state: restarted
+        services:
+          - homepage
+
+    - name: Gatus 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/gatus
+        state: restarted
+        services:
+          - gatus
+
+    - name: Beszel 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/beszel
+        state: restarted
+        services:
+          - beszel
 
 - name: Health check
   hosts: all
@@ -121,3 +160,22 @@
     - name: health 출력
       debug:
         msg: "{{ inventory_hostname }} | Uptime: {{ uptime_result.stdout }} | Load: {{ load_result.stdout }} | Disk: {{ disk_result.stdout }}"
+
+- name: Docker service health check
+  hosts: brla
+  tags: health
+  gather_facts: no
+  tasks:
+    - name: 서비스 HTTP 상태 확인
+      ansible.builtin.uri:
+        url: "{{ item.url }}"
+        status_code: 200
+      loop:
+        - { name: code-server, url: "http://localhost:8080" }
+        - { name: Homepage, url: "http://localhost:3000" }
+        - { name: Gatus, url: "http://localhost:8088" }
+        - { name: Beszel, url: "http://localhost:8090" }
+        - { name: Hermes gateway, url: "http://localhost:8642/health" }
+        - { name: Hermes dashboard, url: "http://localhost:9119" }
+      loop_control:
+        label: "{{ item.name }}"

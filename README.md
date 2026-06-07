@@ -25,7 +25,7 @@ bash setup.sh
 # 4. Ansible 설정 적용
 cd ansible
 ansible-playbook playbook-lt.yml      # lt: Tailscale exit node
-ansible-playbook playbook-brla.yml    # brla: Docker + code-server + Hermes
+ansible-playbook playbook-brla.yml    # brla: Docker + code-server + monitoring + Hermes
 ```
 
 ## 구조
@@ -35,6 +35,22 @@ ansible-playbook playbook-brla.yml    # brla: Docker + code-server + Hermes
 .env.local         # SOPS 유틸리티 (sops-dec/enc/load 함수 + alias)
 setup.sh           # 전체 배포 (.env.local 호출 → tfvars 생성 → tofu)
 opentofu/          # OpenTofu (VCN, Compute, Storage)
-ansible/           # Ansible (Tailscale, Docker, code-server, Hermes)
+ansible/           # Ansible (Tailscale, Docker, code-server, monitoring, Hermes)
 .devcontainer/     # Codespaces 설정
 ```
+
+## Monitoring Dashboard
+
+`brla`에는 Heritage 설정을 복사한 Homepage/Gatus와 새 Beszel Hub를 배포한다.
+기존 Heritage 배포와 설정은 그대로 유지한다.
+
+| 서비스 | URL | 이전 범위 |
+| :--- | :--- | :--- |
+| Homepage | `https://brla.bun-bull.ts.net:3000` | Heritage 설정 복사 |
+| Gatus | `https://brla.bun-bull.ts.net:8088` | endpoint 설정 복사, 이력 DB 신규 생성 |
+| Beszel | `https://brla.bun-bull.ts.net:8090` | 계정과 데이터 모두 신규 생성 |
+
+Homepage의 Transmission/Jellyfin/Aria2 링크는 기존 Heritage 서비스를 계속
+가리킨다. Gatus와 Beszel 런타임 데이터는 대상 호스트에서 새로 생성된다.
+새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME` 및
+`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치하게 생성하거나 해당 값을 갱신해야 한다.

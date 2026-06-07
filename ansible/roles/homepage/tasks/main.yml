@@ -1,0 +1,49 @@
+# ansible/roles/homepage/tasks/main.yml
+
+- name: Homepage 디렉토리 생성
+  ansible.builtin.file:
+    path: /data/homepage/config
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+- name: Homepage 설정 복사
+  ansible.builtin.copy:
+    src: config/
+    dest: /data/homepage/config/
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Homepage 환경변수 확인
+  ansible.builtin.assert:
+    that:
+      - lookup('env', item) | length > 0
+    fail_msg: "Ansible 실행 전 {{ item }} 환경변수를 load 하세요."
+  loop:
+    - HOMEPAGE_VAR_KEY_JELLYFIN
+    - HOMEPAGE_VAR_BESZEL_USERNAME
+    - HOMEPAGE_VAR_BESZEL_PASSWORD
+    - HOMEPAGE_VAR_LATITUDE
+    - HOMEPAGE_VAR_LONGITUDE
+    - HOMEPAGE_VAR_FINNHUB_KEY
+  no_log: true
+
+- name: Homepage Docker Compose 파일 생성
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /data/homepage/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+
+- name: Homepage 이미지 pull
+  ansible.builtin.command: docker pull ghcr.io/gethomepage/homepage:latest
+  changed_when: true
+
+- name: Homepage 컨테이너 시작
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /data/homepage
+  changed_when: true

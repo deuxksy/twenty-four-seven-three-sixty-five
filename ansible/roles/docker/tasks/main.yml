@@ -50,6 +50,16 @@
     state: started
     enabled: yes
 
+- name: Monitoring Docker 네트워크 확인
+  ansible.builtin.command: docker network inspect monitoring
+  register: monitoring_network
+  changed_when: false
+  failed_when: false
+
+- name: Monitoring Docker 네트워크 생성
+  ansible.builtin.command: docker network create monitoring
+  when: monitoring_network.rc != 0
+
 # Block Volume 마운트 (/data — /home/ubuntu에 마운트하면 .ssh 덮어씌워짐)
 - name: Block Volume 파일시스템 생성
   filesystem:
