@@ -1,23 +1,22 @@
 ---
+- Infrastructure:
+    - OCI Console:
+        - abbr: OCI
+          href: https://cloud.oracle.com
+    - Tailscale:
+        - abbr: TS
+          href: https://login.tailscale.com/admin/machines
+    - Cloudflare:
+        - abbr: CF
+          href: https://dash.cloudflare.com
+
 - Developer:
     - Github:
         - abbr: GH
           href: https://github.com/deuxksy
-    - today-vn-news:
-        - abbr: TVN
-          href: https://github.com/deuxksy/today-vn-news
-    - PushOver:
-        - abbr: PO
-          href: https://github.com/deuxksy/PushOver
-    - ai-agent-skill:
-        - abbr: AI
-          href: https://github.com/deuxksy/ai-agent-skill
     - dotfiles:
         - abbr: DF
           href: https://github.com/deuxksy/dotfiles
-    - sylph:
-        - abbr: SY
-          href: https://github.com/deuxksy/sylph
-    - homelab:
-        - abbr: HL
-          href: https://github.com/deuxksy/homelab
+    - "24/7/365":
+        - abbr: "247"
+          href: https://github.com/deuxksy/twenty-four-seven-three-sixty-five

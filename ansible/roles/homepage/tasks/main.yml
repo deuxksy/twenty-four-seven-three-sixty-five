@@ -22,7 +22,6 @@
       - lookup('env', item) | length > 0
     fail_msg: "Ansible 실행 전 {{ item }} 환경변수를 load 하세요."
   loop:
-    - HOMEPAGE_VAR_KEY_JELLYFIN
     - HOMEPAGE_VAR_BESZEL_USERNAME
     - HOMEPAGE_VAR_BESZEL_PASSWORD
     - HOMEPAGE_VAR_LATITUDE

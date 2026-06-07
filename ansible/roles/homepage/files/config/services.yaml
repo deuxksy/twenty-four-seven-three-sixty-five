@@ -4,7 +4,7 @@
           type: calendar
           firstDayInWeek: sunday
           view: monthly
-          timezone: Asia/Ho_Chi_Minh
+          timezone: Asia/Seoul
           integrations:
             - type: ical
               url: https://calendar.google.com/calendar/ical/deuxksy%40gmail.com/public/basic.ics
@@ -33,6 +33,10 @@
           showTime: true
           previousDays: 3
           integrations:
+            - type: ical
+              url: https://calendar.google.com/calendar/ical/deuxksy%40gmail.com/public/basic.ics
+              name: Google Calendar
+              color: amber
 
 - Monitoring:
     - Beszel:
@@ -59,33 +63,15 @@
           version: 2
           url: http://gatus:8088
 
-- Acquisition:
-    - Transmission:
-        label: "Torrent Node"
-        icon: transmission.png
-        href: https://heritage.bun-bull.ts.net/transmission/web/
-        widget:
-          type: transmission
-          url: https://heritage.bun-bull.ts.net
-          rpcUrl: /transmission/
+- Development:
+    - Hermes:
+        label: "AI Gateway"
+        href: https://brla.bun-bull.ts.net:9119
+        server: my-docker
+        container: hermes
 
-    - Aria2:
-        label: "Download Manager"
-        icon: aria2.png
-
-- Streaming:
-    - Jellyfin:
-        label: "Media Server"
-        icon: jellyfin.png
-        href: https://heritage.bun-bull.ts.net/jellyfin
-        widget:
-          type: jellyfin
-          url: https://heritage.bun-bull.ts.net/jellyfin
-          key: {{HOMEPAGE_VAR_KEY_JELLYFIN}}
-          version: 2
-          enableBlocks: true
-          enableNowPlaying: true
-          enableUser: true
-          enableMediaControl: false
-          showEpisodeNumber: true
-          expandOneStreamToTwoRows: false
+    - code-server:
+        label: "VS Code Server"
+        href: https://brla.bun-bull.ts.net
+        server: my-docker
+        container: code-server

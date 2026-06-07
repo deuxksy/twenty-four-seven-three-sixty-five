@@ -4,7 +4,7 @@ envVars: true
 providers:
   finnhub: {{HOMEPAGE_VAR_FINNHUB_KEY}}
 
-title: BRL-A
+title: 24/7/365
 language: en
 showStats: true
 statusStyle: dot
@@ -30,9 +30,9 @@ layout:
   Monitoring:
     style: row
     columns: 2
-  Acquisition:
+  AI:
     style: row
     columns: 1
-  Streaming:
+  Development:
     style: row
     columns: 1
