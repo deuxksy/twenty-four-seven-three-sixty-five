@@ -54,7 +54,31 @@
     chdir: /data/hermes
   become: yes
 
-# --- Git 백업 설정 ---
+# --- 컨테이너 내부 도구 설치 (uv tool) ---
+
+- name: shell-gpt 설치 (uv tool)
+  shell: >
+    docker exec hermes bash -lc "uv tool install shell-gpt &&
+    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
+  become: true
+  register: sgpt_install
+  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
+
+- name: shell-gpt 설정 파일 배포
+  template:
+    src: sgptrc.j2
+    dest: /data/hermes/data/home/.config/shell_gpt/.sgptrc
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
+
+# --- .git 권한 수정 (hermes UID:10000) ---
+
+- name: .git 디렉토리 소유권 변경 (hermes)
+  shell: chown -R 10000:10000 /data/hermes/data/.git
+  become: true
+
+# --- Git 백업 & 복원 설정 ---
 
 - name: Git 글로벌 설정 (root)
   git_config:
@@ -66,10 +90,57 @@
     - { key: "user.email", value: "{{ git_user_email | default('deuxksy@gmail.com') }}" }
     - { key: "safe.directory", value: "/data/hermes/data" }
 
-- name: Hermes 데이터 Git 초기화
-  shell: git init || true
+- name: GitHub remote URL 확인
+  shell: git remote get-url origin 2>/dev/null
   args:
     chdir: /data/hermes/data
+  register: hermes_git_remote
+  changed_when: false
+  failed_when: false
+
+- name: 서버 복원 — ai-brla repo에서 데이터 복원
+  block:
+    - name: "ai-brla 복원 디렉토리 생성"
+      file:
+        path: /tmp/hermes-restore
+        state: directory
+        mode: "0700"
+
+    - name: "ai-brla repo clone (token auth)"
+      git:
+        repo: "https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git"
+        dest: /tmp/hermes-restore
+        depth: 1
+        force: yes
+
+    - name: "ai-brla 데이터를 Hermes 볼륨에 복사"
+      shell: >
+        cp -a /tmp/hermes-restore/. /data/hermes/data/
+      become: true
+
+    - name: "기존 .git 유지 보장"
+      shell: >
+        cp -a /tmp/hermes-restore/.git /data/hermes/data/.git 2>/dev/null || true
+      become: true
+
+    - name: "복원 디렉토리 정리"
+      file:
+        path: /tmp/hermes-restore
+        state: absent
+
+    - name: "데이터 소유권 복원 (hermes)"
+      file:
+        path: /data/hermes/data
+        owner: "10000"
+        group: "10000"
+        recurse: yes
+
+    - name: "복원 완료 로그"
+      debug:
+        msg: "✅ ai-brla repo에서 Hermes 데이터 복원 완료"
+  when:
+    - hermes_git_remote.rc != 0
+    - lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
 - name: Hermes .gitignore 배포
   copy:
@@ -79,7 +150,7 @@
     group: "10000"
     mode: "0644"
 
-- name: GitHub remote 등록
+- name: GitHub remote 등록 (복원 후 또는 최초)
   shell: >
     git remote get-url origin 2>/dev/null ||
     git remote add origin https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
@@ -87,10 +158,14 @@
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
+- name: .git 디렉토리 소유권 변경 (hermes)
+  shell: chown -R 10000:10000 /data/hermes/data/.git
+  become: true
+
 - name: 초기 커밋 + push (최초 1회)
   shell: >
     git add -A &&
-    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }} <{{ git_user_email | default('deuxksy@gmail.com') }}>" && git push -u origin main)
+    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }}" <{{ git_user_email | default('deuxksy@gmail.com') }}> && git push -u origin main)
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
