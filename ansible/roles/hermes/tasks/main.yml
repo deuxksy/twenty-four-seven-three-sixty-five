@@ -178,10 +178,10 @@
     group: root
     mode: "0755"
 
-- name: Hermes backup cron 설정 (하루 4회)
+- name: Hermes backup cron 설정 (하루 4회, hermes 권한으로 실행)
   cron:
     name: "hermes-backup"
     minute: "10"
     hour: "3,9,15,21"
-    job: "/data/hermes/backup.sh >> /data/hermes/backup.log 2>&1"
+    job: "su -s /bin/bash hermes -c '/data/hermes/backup.sh' >> /data/hermes/backup.log 2>&1"
     user: root
