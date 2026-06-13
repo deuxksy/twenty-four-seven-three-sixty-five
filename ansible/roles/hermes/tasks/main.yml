@@ -183,5 +183,5 @@
     name: "hermes-backup"
     minute: "10"
     hour: "3,9,15,21"
-    job: "su -s /bin/bash hermes -c '/data/hermes/backup.sh' >> /data/hermes/backup.log 2>&1"
+    job: "sudo -u #10000 /bin/bash -c '/data/hermes/backup.sh' >> /data/hermes/backup.log 2>&1"
     user: root
