@@ -1,4 +1,4 @@
-# twenty-four-seven-three-sixty-five
+# 247365
 
 OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 접근 가능한 환경에서 OpenTofu + Ansible로 프로비저닝하고, Tailscale HTTPS로 code-server에 접속해 개발.
 
