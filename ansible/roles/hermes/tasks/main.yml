@@ -15,7 +15,29 @@
     group: "10000"
     mode: "0755"
 
-- name: Hermes Docker Compose 파일 생성
+- name: Ubuntu 유저 SSH 디렉토리 존재 확인
+  stat:
+    path: /home/ubuntu/.ssh
+  register: ubuntu_ssh_dir
+
+- name: Ubuntu 유저 SSH 디렉토리 생성 (없는 경우)
+  file:
+    path: /home/ubuntu/.ssh
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0700"
+  when: not ubuntu_ssh_dir.stat.exists
+
+- name: SSH config 배포 (호스트)
+  template:
+    src: ssh_config.j2
+    dest: /home/ubuntu/.ssh/config
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2
     dest: /data/hermes/docker-compose.yml
