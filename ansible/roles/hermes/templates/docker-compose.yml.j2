@@ -9,6 +9,7 @@ services:
       - "127.0.0.1:9119:9119"
     volumes:
       - /data/hermes/data:/opt/data
+      - /home/ubuntu/.ssh:/opt/data/home/.ssh
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
