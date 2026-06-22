@@ -50,7 +50,7 @@
   when: not tailscale_exit_node | bool
 
 # Tailscale Serve (brla만) - HTTPS 라우팅
-- name: Tailscale serve 설정 (/ → code-server)
-  command: tailscale serve --bg 8080
+- name: Tailscale serve 설정 (/ → homepage)
+  command: tailscale serve --bg 3000
   become: true
   when: not tailscale_exit_node | bool

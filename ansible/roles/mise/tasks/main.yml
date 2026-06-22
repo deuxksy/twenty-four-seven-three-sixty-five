@@ -1,0 +1,41 @@
+# ansible/roles/mise/tasks/main.yml
+
+# mise: 런타임 버전 매니저. 공식 installer로 ubuntu 홈에 설치하여 시스템
+# 패키지와 분리 — 개발 도구는 사용자 범위로 관리 (mise로 SDK 관리 원칙).
+
+# ansible은 non-login shell이므로 mise activate가 동작하지 않음 → 모든 명령을
+# 절대 경로로 호출하고, interactive shell용 활성화는 .bashrc에 별도 추가.
+
+- name: mise 바이너리 설치 (공식 installer)
+  shell: curl -fsSL https://mise.run | sh
+  args:
+    creates: /home/ubuntu/.local/bin/mise
+  become_user: ubuntu
+
+- name: mise 셸 활성화 (.bashrc, .zshrc)
+  lineinfile:
+    path: "/home/ubuntu/{{ item.file }}"
+    line: 'eval "$(mise activate {{ item.shell }})"'
+    create: yes
+  loop:
+    - { file: '.bashrc', shell: 'bash' }
+    - { file: '.zshrc', shell: 'zsh' }
+  become_user: ubuntu
+
+# mise install/use/corepack 모두 멱동 — 이미 설치된 경우 no-op.
+# ansible non-login shell이므로 mise 명령을 절대 경로로 호출.
+- name: Node.js 24 LTS 설치 (mise)
+  command: /home/ubuntu/.local/bin/mise install nodejs@24
+  changed_when: false
+  become_user: ubuntu
+
+- name: Node.js 24 글로벌 default 설정 (mise)
+  command: /home/ubuntu/.local/bin/mise use -g nodejs@24
+  changed_when: false
+  become_user: ubuntu
+
+# corepack은 Node.js 24 환경에서 실행 — mise exec로 환경 명시
+- name: pnpm corepack 활성화
+  command: /home/ubuntu/.local/bin/mise exec nodejs@24 -- corepack enable pnpm
+  changed_when: false
+  become_user: ubuntu

@@ -1,0 +1,22 @@
+# ansible/roles/zsh/tasks/main.yml
+
+# ubuntu 기본 셸을 zsh로 전환. code-server 터미널도 로그인 셸을 따라 zsh 적용.
+
+- name: zsh 패키지 설치
+  apt:
+    name: zsh
+    state: present
+
+- name: ubuntu 기본 셸을 zsh로 변경
+  user:
+    name: ubuntu
+    shell: /usr/bin/zsh
+
+# oh-my-zsh: zsh 프레임워크. installer가 .zshrc 템플릿을 생성하므로
+# playbook 순서상 mise role보다 먼저 실행되어야 함 (mise가 .zshrc에 activate 추가).
+# RUNZSH/CHSH=no로 non-interactive 설치.
+- name: oh-my-zsh 설치 (공식 installer)
+  shell: RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  args:
+    creates: /home/ubuntu/.oh-my-zsh
+  become_user: ubuntu

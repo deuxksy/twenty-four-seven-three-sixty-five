@@ -1,0 +1,10 @@
+# ansible/roles/packages/tasks/main.yml
+
+# apt 패키지 모음. 시스템 유틸리티 중 apt로 설치 가능한 도구들을 이 role에
+# 추가한다. GitHub release 등 비-apt 방식의 도구는 별도 role로 관리.
+
+- name: apt 패키지 설치
+  apt:
+    name:
+      - age
+    state: present

@@ -41,6 +41,9 @@ ansible-playbook playbook-ops.yml --tags system-update   # apt 업데이트 (lt/
 ansible-playbook playbook-ops.yml --tags docker-update   # Docker 이미지 pull + 컨테이너 재시작 (brla)
 ansible-playbook playbook-ops.yml --tags health          # health check (uptime, load, disk)
 
+# Ansible 구문 검증 (적용 전, brla Tailscale 접속 불필요)
+ansible-playbook --syntax-check ansible/playbook-brla.yml -i ansible/inventory/hosts.ini
+
 # 전체 배포 (setup.sh)
 bash setup.sh
 
@@ -53,6 +56,11 @@ ssh -o ProxyJump=ubuntu@$LT_IP ubuntu@$BRLA_IP                        # brla (lt
 # 서비스 검증 (brla에서)
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
 curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
+
+# 개발 도구 검증 (brla, code-server 터미널)
+mise --version && node -v && pnpm -v                                  # mise + Node.js 24 + pnpm
+sops --version && age --version                                       # 시크릿 암호화 도구
+claude --version                                                      # Claude Code (인증은 별도)
 ```
 
 ## Architecture
@@ -65,14 +73,14 @@ graph TD
       SGW[Service Gateway]
 
       subgraph lt-subnet[lt-subnet 10.210.0.0/24]
-        lt[AMD Micro lt<br/>Ubuntu 24.04<br/>Tailscale Exit Node]
-        lt-sl[lt-sl<br/>SSH 22, Tailscale 41641]
+        lt[AMD Micro lt - Ubuntu 24.04 - Tailscale Exit Node]
+        lt-sl[lt-sl - SSH 22 - Tailscale 41641]
       end
 
       subgraph brla-subnet[brla-subnet 10.210.1.0/24]
-        brla[ARM A1 brla<br/>Ubuntu 24.04 ARM<br/>Docker Compose]
-        brla-sl[brla-sl<br/>Tailscale 41641]
-        BV[Block Volume 64GB<br/>/data]
+        brla[ARM A1 brla - Ubuntu 24.04 ARM - Docker Compose]
+        brla-sl[brla-sl - Tailscale 41641]
+        BV[Block Volume 64GB - /data]
       end
 
       IGW --> lt-subnet
@@ -113,6 +121,7 @@ graph TD
 - `setup.sh`에서 `tofu init`/`tofu plan`/`tofu apply` 자동 실행 (전체 프로비저닝)
 - `.env.local`은 SOPS 유틸리티 (함수 + alias: `dec`, `enc`, `load`). `source .env.local`로 로드. `setup.sh`도 내부적으로 호출
 - 인프라 변경 후 스펙과 실제 코드 동기화 필수
+- Ansible role 분리 원칙: apt → `packages`, GitHub release 바이너리 → `binary`, 설정/서비스 → 개별 role. 새 도구는 설치 방식에 따라 배치
 
 ## Gotchas
 
@@ -123,18 +132,27 @@ graph TD
 - Tailscale 인증서 경로는 `/var/lib/tailscale/certs/` (not `/etc/tailscale/`)
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - code-server 컨테이너는 ubuntu UID 1001과 매칭 (`user: "1001:1001"`) → 호스트에서 파일 조작 가능 (sudo 불필요)
+- brla 컨테이너 포트는 항상 `127.0.0.1:<port>:<port>`로 바인딩. `tailscale serve`가 Tailscale IP에서 HTTPS 종단 후 `127.0.0.1:<port>`로 프록시. `0.0.0.0:<port>`(또는 `<port>:<port>`) 바인딩 시 tailscaled가 점유한 Tailscale IP 포트와 충돌 (`address already in use`)
 - Hermes API 키/토큰은 docker-compose `environment:`에서 Ansible로 직접 주입 (별도 `.env` 파일 사전 작성 불필요)
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
 - Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `glm-5-turbo`, `api_mode: anthropic_messages`
+- Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard가 `0.0.0.0:9119` 직접 바인딩하므로 tailscale serve `:9119` 항목이 있으면 포트 충돌 + Host 헤더 검증 실패(400). dashboard는 `http://brla.bun-bull.ts.net:9119` (HTTP, Tailscale WireGuard 암호화)로 직접 접근 — tailscale serve 프록시 불가
+- Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
 - Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
 - Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
 - Hermes Git 백업: `deuxksy/ai-brla` repo에 하루 4회 자동 백업 (cron: 03:10, 09:10, 15:10, 21:10). SQL dump로 SQLite 백업. `GITHUB_HERMES_TOKEN` 필요 (`.env.sops`에서 SOPS 복호화)
 - SSH IdentitiesOnly: 글로벌 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` + `IdentityFile ~/.ssh/AI/id_ed25519` 로 해결. 별도 `ansible/ssh_config` 불필요
 - Docker 로그 로테이션: `/etc/docker/daemon.json`으로 `max-size: 10m`, `max-file: 3`. **신규 컨테이너에만 적용** — 기존 컨테이너는 `docker compose down && up`으로 재생성 필요
 - IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), code-server 포트 `8080` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
+- zsh: ubuntu 기본 셸. code-server 터미널도 로그인 셸(zsh)을 따름
+- sops: `binary` role에서 GitHub release 바이너리 (`/usr/local/bin/sops`) 설치. 최신 유지 시 `--extra-vars sops_force=true`
+- packages: apt 패키지 모음 (age 등). 새 apt 도구는 이 role의 name 리스트에 추가
+- binary: GitHub release 바이너리 모음 (sops 등). 새 바이너리 도구는 이 role에 추가
+- mise: 사용자 범위 (`/home/ubuntu/.local/bin/mise`). Ansible은 non-login shell이라 `mise activate` 미동작 → role 내 모든 명령을 절대 경로로 호출, interactive shell용 활성화는 `.bashrc`/`.zshrc`에 별도 추가
+- Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
+- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), code-server 포트 `8080` (compose), homepage 포트 `3000` (수동 compose + tailscale serve `--bg 3000`), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
 
@@ -155,12 +173,17 @@ ansible/                 # Ansible
 ├── ansible.cfg
 ├── inventory/hosts.ini  # tofu output으로 자동 생성
 ├── playbook-lt.yml      # lt: Tailscale exit node
-├── playbook-brla.yml    # brla: Docker + code-server + Hermes
+├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + Hermes
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
     ├── tailscale/       # exit node, IP forwarding, HTTPS cert
     ├── docker/          # Docker Engine + Compose, /data 마운트
+    ├── packages/        # apt 패키지 모음 (age 등)
+    ├── binary/          # GitHub release 바이너리 모음 (sops 등)
+    ├── zsh/             # zsh + oh-my-zsh + ubuntu 기본 셸 전환
     ├── code-server/     # codercom/code-server:latest (user 1000:1000)
+    ├── mise/            # mise (공식 installer) + Node.js LTS 24 + pnpm (corepack)
+    ├── claude-code/     # Claude Code CLI (native installer, Node 불필요)
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run
         ├── files/gitignore    # 백업 제외 규칙
         ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)
@@ -168,5 +191,9 @@ ansible/                 # Ansible
 
 .claude/skills/          # Claude Code 스킬
 ├── deploy-infra/SKILL.md  # 전체 배포 파이프라인
-└── verify-infra/SKILL.md  # 인프라 상태 검증
+├── verify-infra/SKILL.md  # 인프라 상태 검증
+└── add-ansible-role/SKILL.md  # role 추가 워크플로우 (설치 방식별 배치)
+
+.claude/agents/          # Claude Code 서브에이전트
+└── ansible-role-reviewer.md  # role 변경사항 품질 검증 (멱등성, become_user, non-login shell)
 ```
