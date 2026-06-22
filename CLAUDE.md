@@ -163,7 +163,6 @@ graph TD
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: Tailscale Serve 라우팅 시 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
-- Traefik role(`ansible/roles/traefik/`)은 존재하지만 playbook-brla에서 호출 안 함 — Serve 포트 기반 라우팅으로 회귀하며 비활성, 참조용 보존
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9119`/gateway `8642` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
@@ -199,7 +198,6 @@ ansible/                 # Ansible
     ├── homepage/        # BRL-A 전용 Homepage 설정 (Info, Monitoring, AI, Development)
     ├── gatus/           # Heritage endpoint 설정 복사본, 신규 이력 DB
     ├── beszel/          # 신규 Beszel Hub
-    ├── traefik/         # (미사용) Serve 포트기반 회귀로 비활성, 참조용 보존
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run (host network, Aperture)
         ├── files/gitignore    # 백업 제외 규칙
         ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)

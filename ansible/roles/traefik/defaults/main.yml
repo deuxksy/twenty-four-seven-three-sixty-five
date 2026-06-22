@@ -1,3 +1,0 @@
-traefik_domain: "brla.bun-bull.ts.net"
-traefik_data_dir: "/data/traefik"
-traefik_cert_dir: "/var/lib/tailscale/certs"
