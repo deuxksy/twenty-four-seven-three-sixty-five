@@ -187,7 +187,7 @@
 - name: 초기 커밋 + push (최초 1회)
   shell: >
     git add -A &&
-    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }}" <{{ git_user_email | default('deuxksy@gmail.com') }}> && git push -u origin main)
+    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }} <{{ git_user_email | default('deuxksy@gmail.com') }}>" && git push -u origin main)
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0

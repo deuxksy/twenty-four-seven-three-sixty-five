@@ -28,7 +28,7 @@ tofu init                  # Cloudflare R2 backend로 초기화
 tofu plan -var-file=terraform.tfvars
 tofu apply -auto-approve -var-file=terraform.tfvars
 
-# Ansible (Tailscale 연결결 실행)
+# Ansible (Tailscale 연결 시 실행)
 cd opentofu
 tofu output -raw ansible_inventory_ini > ../ansible/inventory/hosts.ini
 cd ../ansible
@@ -60,6 +60,13 @@ curl -s -o /dev/null -w '%{http_code}' http://localhost:8088           # Gatus
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8090           # Beszel
 curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway (host 포트매핑)
+
+# 외부 접근 (Tailscale Serve HTTPS — brla.bun-bull.ts.net)
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net/          # Homepage (443)
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8080/     # code-server
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8088/     # Gatus
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8090/     # Beszel
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/     # Hermes dashboard
 
 # 개발 도구 검증 (brla, code-server 터미널)
 mise --version && node -v && pnpm -v                                  # mise + Node.js 24 + pnpm
@@ -101,7 +108,7 @@ graph TD
 - **SOPS binary 모드**: `.env`에 PEM 키, 멀티라인 값 등 특수문자가 포함되어 `--input-type binary`로 인코딩 문제를 우회함
 - **State Backend**: Cloudflare R2 (S3-compatible). 버킷(`terraform-state`)은 수동 생성
 - **Hostnames**: `lt`(L-T, 조명 로봇), `brla`(BRL-A, 파라솔 로봇) — WALL-E 세계관
-- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`)
+- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`) — Homepage(443), code-server(8080), Gatus(8088), Beszel(8090), Hermes(9119)
 - **Region**: OCI `ap-chuncheon-1` (춘천)
 
 ## Key Variables
@@ -146,7 +153,8 @@ graph TD
 - Hermes gateway(8642)는 `127.0.0.1` 포트매핑 유지 (health check용)
 - Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
 - Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
-- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
+- Hermes SSH: 컨테이너가 호스트의 `/home/ubuntu/.ssh`를 `/opt/data/home/.ssh`로 마운트하여 다른 Tailscale 호스트(axiom, eve, walle, lt, brla 등)에 SSH 접속 (commit `db05d72`). `ssh_config.j2`가 호스트 `/home/ubuntu/.ssh/config`에 배포됨
+- Hermes Docker 볼륨: `/data/hermes/data:/opt/data` + `/home/ubuntu/.ssh:/opt/data/home/.ssh` (디렉토리 마운트, rw). 파일 단위 `:ro` 마운트 시 atomic write 불가
 - Hermes Git 백업: `deuxksy/ai-brla` repo에 하루 4회 자동 백업 (cron: 03:10, 09:10, 15:10, 21:10). SQL dump로 SQLite 백업. `GITHUB_HERMES_TOKEN` 필요 (`.env.sops`에서 SOPS 복호화)
 - SSH IdentitiesOnly: 글로벌 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` + `IdentityFile ~/.ssh/AI/id_ed25519` 로 해결. 별도 `ansible/ssh_config` 불필요
 - Docker 로그 로테이션: `/etc/docker/daemon.json`으로 `max-size: 10m`, `max-file: 3`. **신규 컨테이너에만 적용** — 기존 컨테이너는 `docker compose down && up`으로 재생성 필요
@@ -159,8 +167,12 @@ graph TD
 - Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
 - Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
 - Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
+- 라우팅: Tailscale Serve 포트 기반 — Homepage(443→3000), code-server(8080), Gatus(8088), Beszel(8090), Hermes(9119)
+- Docker `proxy` 네트워크는 컨테이너 간 통신용 (Tailscale Serve는 호스트 `127.0.0.1` 포트로 라우팅)
 - 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME`/`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치해야 Homepage 위젯이 동작
-- Homepage `HOMEPAGE_ALLOWED_HOSTS`: Tailscale Serve 라우팅 시 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
+- 라우팅은 Tailscale Serve가 담당. 매 배포 시 `tailscale serve reset` 후 각 포트 재등록 (tailscale role)
+- Tailscale 인증서 발급(`tailscale cert`)은 유지 — Tailscale Serve가 TLS termination에 사용
+- Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9119`/gateway `8642` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
@@ -197,17 +209,24 @@ ansible/                 # Ansible
     ├── code-server/     # codercom/code-server:latest (user 1001:1001)
     ├── homepage/        # BRL-A 전용 Homepage 설정 (Info, Monitoring, AI, Development)
     ├── gatus/           # Heritage endpoint 설정 복사본, 신규 이력 DB
-    ├── beszel/          # 신규 Beszel Hub
-    └── hermes/          # nousresearch/hermes-agent:latest, gateway run (host network, Aperture)
-        ├── files/gitignore    # 백업 제외 규칙
-        ├── templates/backup.sh.j2  # Git 백업 스크립트 (cron 실행)
-        └── templates/docker-compose.yml.j2  # Ansible 생성
+    ├── beszel/          # 신규 Beszel Hub (container_name: beszel-hub)
+    └── hermes/          # nousresearch/hermes-agent:latest, gateway run (network_mode: host)
+        ├── files/gitignore          # 백업 제외 규칙
+        ├── templates/backup.sh.j2   # Git 백업 스크립트 (cron 실행)
+        ├── templates/config.yaml.j2 # Hermes AI provider/model 설정 (Aperture, glm-5-turbo)
+        ├── templates/docker-compose.yml.j2  # Ansible 생성
+        ├── templates/env.j2         # Hermes 환경변수
+        ├── templates/sgptrc.j2      # shell-gpt 설정
+        └── templates/ssh_config.j2  # 호스트 SSH config (Tailscale 호스트 접속용)
 
 .claude/skills/          # Claude Code 스킬
-├── deploy-infra/SKILL.md  # 전체 배포 파이프라인
-├── verify-infra/SKILL.md  # 인프라 상태 검증
-└── add-ansible-role/SKILL.md  # role 추가 워크플로우 (설치 방식별 배치)
+├── deploy-infra/SKILL.md       # 전체 배포 파이프라인
+├── tailscale-serve-sync/SKILL.md # Tailscale Serve 라우팅 동기화
+├── update-service/SKILL.md     # 개별 서비스 업데이트
+├── add-ansible-role/SKILL.md   # role 추가 워크플로우 (설치 방식별 배치)
+└── verify-infra/SKILL.md       # 인프라 상태 검증
 
 .claude/agents/          # Claude Code 서브에이전트
-└── ansible-role-reviewer.md  # role 변경사항 품질 검증 (멱등성, become_user, non-login shell)
+├── ansible-role-reviewer.md  # role 변경사항 품질 검증 (멱등성, become_user, non-login shell)
+└── infra-reviewer.md         # 인프라 관점 리뷰 (보안/비용/가용성)
 ```
