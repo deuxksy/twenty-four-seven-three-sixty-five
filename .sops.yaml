@@ -1,5 +1,5 @@
 creation_rules:
   - path_regex: ^\.env$
-    age: "age1p4uvxng3vwjr3s465u37s346snmvr0ksus8e0eclutvmrjyh89zspfts9d"
+    age: "age1qw643dna4spaup6sr5ap0jf039ncjd54e8ekvrfy6p6x96ys2y4qn5vcsy"
   - path_regex: ^secrets/
-    age: "age1p4uvxng3vwjr3s465u37s346snmvr0ksus8e0eclutvmrjyh89zspfts9d"
+    age: "age1qw643dna4spaup6sr5ap0jf039ncjd54e8ekvrfy6p6x96ys2y4qn5vcsy"

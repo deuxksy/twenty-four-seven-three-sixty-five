@@ -1,0 +1,39 @@
+web:
+  port: 8088
+
+storage:
+  type: sqlite
+  path: /data/gatus.db
+
+ui:
+  title: "BRL-A Status"
+  header: "BRL-A and Heritage Services Health"
+
+endpoints:
+  - name: Homepage
+    group: BRL-A Infrastructure
+    url: "http://homepage:3000"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: Beszel
+    group: BRL-A Infrastructure
+    url: "http://beszel:8090"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: Transmission
+    group: Heritage Services
+    url: "https://heritage.bun-bull.ts.net/transmission/web/"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: Jellyfin
+    group: Heritage Services
+    url: "https://heritage.bun-bull.ts.net/jellyfin/health"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"

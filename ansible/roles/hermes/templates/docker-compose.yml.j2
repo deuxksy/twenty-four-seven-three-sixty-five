@@ -3,10 +3,14 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
-    network_mode: host
     command: gateway run
+    network_mode: host
+    ports:
+      - "127.0.0.1:8642:8642"
+      - "127.0.0.1:9119:9119"
     volumes:
       - /data/hermes/data:/opt/data
+      - /home/ubuntu/.ssh:/opt/data/home/.ssh
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1

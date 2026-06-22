@@ -15,4 +15,7 @@
     - role: mise
     - role: claude-code
     - role: code-server
+    - role: homepage
+    - role: gatus
+    - role: beszel
     - role: hermes

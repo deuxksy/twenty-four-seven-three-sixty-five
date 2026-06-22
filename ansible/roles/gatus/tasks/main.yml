@@ -1,0 +1,38 @@
+# ansible/roles/gatus/tasks/main.yml
+
+- name: Gatus 디렉토리 생성
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /data/gatus, mode: "0755" }
+    - { path: /data/gatus/data, mode: "0755" }
+
+- name: Gatus 설정 복사
+  ansible.builtin.copy:
+    src: config.yaml
+    dest: /data/gatus/config.yaml
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Gatus Docker Compose 파일 생성
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /data/gatus/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Gatus 이미지 pull
+  ansible.builtin.command: docker pull twinproduction/gatus:latest
+  changed_when: true
+
+- name: Gatus 컨테이너 시작
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /data/gatus
+  changed_when: true

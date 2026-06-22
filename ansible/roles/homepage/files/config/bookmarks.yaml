@@ -1,0 +1,25 @@
+---
+- Infrastructure:
+    - OCI Console:
+        - abbr: OCI
+          href: https://cloud.oracle.com
+    - Tailscale:
+        - abbr: TS
+          href: https://login.tailscale.com/admin/machines
+    - Cloudflare:
+        - abbr: CF
+          href: https://dash.cloudflare.com
+
+- Developer:
+    - "24/7/365":
+        - abbr: "247"
+          href: https://github.com/deuxksy/twenty-four-seven-three-sixty-five
+    - Github:
+        - abbr: GH
+          href: https://github.com/deuxksy
+    - dotfiles:
+        - abbr: DF
+          href: https://github.com/deuxksy/dotfiles
+    - sylph:
+        - abbr: SY
+          href: https://github.com/deuxksy/sylph

@@ -1,0 +1,31 @@
+# ansible/roles/beszel/tasks/main.yml
+
+- name: Beszel 디렉토리 생성
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+  loop:
+    - /data/beszel
+    - /data/beszel/data
+    - /data/beszel/socket
+
+- name: Beszel Docker Compose 파일 생성
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /data/beszel/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Beszel 이미지 pull
+  ansible.builtin.command: docker pull docker.io/henrygd/beszel:latest
+  changed_when: true
+
+- name: Beszel 컨테이너 시작
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /data/beszel
+  changed_when: true
