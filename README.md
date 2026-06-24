@@ -46,7 +46,8 @@ ansible/           # Ansible (Tailscale, Docker, code-server, monitoring, Hermes
 
 | 서비스 | URL | 이전 범위 |
 | :--- | :--- | :--- |
-| Homepage | `https://brla.bun-bull.ts.net:3000` | Heritage 설정 복사 |
+| Homepage | `https://brla.bun-bull.ts.net` | Heritage 설정 복사 |
+| code-server | `https://brla.bun-bull.ts.net:8080` | 개발 환경 (Tailscale HTTPS) |
 | Gatus | `https://brla.bun-bull.ts.net:8088` | endpoint 설정 복사, 이력 DB 신규 생성 |
 | Beszel | `https://brla.bun-bull.ts.net:8090` | 계정과 데이터 모두 신규 생성 |
 

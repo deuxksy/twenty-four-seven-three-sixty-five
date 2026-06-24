@@ -58,7 +58,7 @@ curl -s -o /dev/null -w '%{http_code}' http://localhost:3000           # Homepag
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8080           # code-server
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8088           # Gatus
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8090           # Beszel
-curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard
+curl -s -o /dev/null -w '%{http_code}' http://localhost:9119           # Hermes dashboard (brla 호스트 로컬만 — loopback bind)
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway (host 포트매핑)
 
 # 외부 접근 (Tailscale Serve HTTPS — brla.bun-bull.ts.net)
@@ -66,7 +66,8 @@ curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net/          #
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8080/     # code-server
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8088/     # Gatus
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8090/     # Beszel
-curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/     # Hermes dashboard
+# Hermes dashboard는 tailscale serve 미지원 (Host 검증 400). code-server 터미널 또는 SSH 포트포워드로만:
+#   ssh -L 9119:127.0.0.1:9119 ubuntu@<brla_ip>  → http://localhost:9119
 
 # 개발 도구 검증 (brla, code-server 터미널)
 mise --version && node -v && pnpm -v                                  # mise + Node.js 24 + pnpm
@@ -108,7 +109,7 @@ graph TD
 - **SOPS binary 모드**: `.env`에 PEM 키, 멀티라인 값 등 특수문자가 포함되어 `--input-type binary`로 인코딩 문제를 우회함
 - **State Backend**: Cloudflare R2 (S3-compatible). 버킷(`terraform-state`)은 수동 생성
 - **Hostnames**: `lt`(L-T, 조명 로봇), `brla`(BRL-A, 파라솔 로봇) — WALL-E 세계관
-- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`) — Homepage(443), code-server(8080), Gatus(8088), Beszel(8090), Hermes(9119)
+- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`) — Homepage(443), code-server(8080), Gatus(8088), Beszel(8090). Hermes dashboard는 loopback bind라 serve 미연결 (별도 접근법은 Gotchas 참조)
 - **Region**: OCI `ap-chuncheon-1` (춘천)
 
 ## Key Variables
@@ -147,10 +148,10 @@ graph TD
 - Hermes API 키/토큰은 docker-compose `environment:`에서 Ansible로 직접 주입 (별도 `.env` 파일 사전 작성 불필요)
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
-- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_INSECURE=1` (Tailscale 내부망)
+- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_HOST=127.0.0.1` (loopback bind로 auth gate 면제)
 - Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `glm-5-turbo`, `api_mode: anthropic_messages`
-- Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard가 `0.0.0.0:9119` 직접 바인딩 → `tailscale serve` `:9119` 항목과 포트 충돌 + Host 헤더 검증 실패(400). dashboard는 `http://brla.bun-bull.ts.net:9119` (HTTP, Tailscale WireGuard 암호화)로 직접 접근 — serve 프록시 불가
-- Hermes gateway(8642)는 `127.0.0.1` 포트매핑 유지 (health check용)
+- Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard는 `HERMES_DASHBOARD_HOST=127.0.0.1`로 loopback 바인딩 — 2026-06 hardening으로 non-loopback bind 시 auth provider 필수, `HERMES_DASHBOARD_INSECURE`는 no-op. Host 헤더 검증(bind host 강제)으로 tailscale serve 프록시 시 400 → dashboard는 code-server 터미널 또는 SSH 포트포워드(`ssh -L 9119:127.0.0.1:9119 ubuntu@<brla_ip>`)로만 접근
+- Hermes gateway(8642)는 Hermes 프로세스가 `127.0.0.1`에 직접 bind (health check용)
 - Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
 - Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
 - Hermes SSH: 컨테이너가 호스트의 `/home/ubuntu/.ssh`를 `/opt/data/home/.ssh`로 마운트하여 다른 Tailscale 호스트(axiom, eve, walle, lt, brla 등)에 SSH 접속 (commit `db05d72`). `ssh_config.j2`가 호스트 `/home/ubuntu/.ssh/config`에 배포됨
@@ -167,7 +168,7 @@ graph TD
 - Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
 - Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
 - Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
-- 라우팅: Tailscale Serve 포트 기반 — Homepage(443→3000), code-server(8080), Gatus(8088), Beszel(8090), Hermes(9119)
+- 라우팅: Tailscale Serve 포트 기반 — Homepage(443→3000), code-server(8080), Gatus(8088), Beszel(8090). Hermes dashboard는 serve 미연결(loopback bind)
 - Docker `proxy` 네트워크는 컨테이너 간 통신용 (Tailscale Serve는 호스트 `127.0.0.1` 포트로 라우팅)
 - 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME`/`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치해야 Homepage 위젯이 동작
 - 라우팅은 Tailscale Serve가 담당. 매 배포 시 `tailscale serve reset` 후 각 포트 재등록 (tailscale role)
@@ -175,7 +176,7 @@ graph TD
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9119`/gateway `8642` (compose, tailscale serve), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
+- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9119`/gateway `8642` (compose — host 모드라 ports는 무시되고 Hermes 프로세스가 loopback bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
 
