@@ -17,3 +17,6 @@ terraform.tfvars
 .serena/
 ansible/inventory/hosts.ini
 .claude/settings.local.json
+
+# understand-anything (지식 그래프 도구)
+.understand-anything/
