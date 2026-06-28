@@ -12,7 +12,7 @@
     state: present
     update_cache: yes
 
-# Docker 설치
+# Docker 설치 (docker-ce + containerd.io — containerd image store default on Docker 29+)
 - name: Docker Engine + Compose 플러그인 설치
   apt:
     name:
@@ -28,39 +28,8 @@
     groups: docker
     append: yes
 
-- name: Docker daemon.json 배포 (로그 로테이션)
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "10m",
-          "max-file": "3"
-        }
-      }
-    owner: root
-    group: root
-    mode: "0644"
-  notify: restart docker
-
-- name: Docker 서비스 활성화
-  service:
-    name: docker
-    state: started
-    enabled: yes
-
-- name: Proxy Docker 네트워크 확인
-  ansible.builtin.command: docker network inspect proxy
-  register: proxy_network
-  changed_when: false
-  failed_when: false
-
-- name: Proxy Docker 네트워크 생성
-  ansible.builtin.command: docker network create proxy
-  when: proxy_network.rc != 0
-
-# Block Volume 마운트 (/data — /home/ubuntu에 마운트하면 .ssh 덮어씌워짐)
+# Block Volume (/data) — data-root 이동 전 마운트 선행 (drop-in과 함께 부팅 순서 보장)
+# Block Volume 64GB — Docker + containerd 데이터를 /data 하위로 이동하여 루트 볼륨 부담 분리
 - name: Block Volume 파일시스템 생성
   filesystem:
     fstype: ext4
@@ -85,6 +54,108 @@
     path: /data
     owner: ubuntu
     group: ubuntu
+
+# Docker data-root 디렉토리 (root:root 0711 — Docker state 디렉토리 권한 요구사항)
+- name: Docker data-root 디렉토리 생성 (/data/docker)
+  file:
+    path: /data/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+# containerd root 디렉토리 (containerd image store — 실제 이미지/레이어 데이터. Docker 29+는 /var/lib/docker가 아닌 containerd가 이미지 저장)
+- name: containerd root 디렉토리 생성 (/data/containerd)
+  file:
+    path: /data/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+# systemd drop-in — 부팅 시 /data 마운트 후 docker/containerd 시작 보장
+# /data가 마운트되기 전에 데몬이 시작하면 /data/docker를 루트 fs에 새로 만들어 버림
+- name: docker.service drop-in 디렉토리 생성
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: docker.service RequiresMountsFor=/data drop-in
+  copy:
+    dest: /etc/systemd/system/docker.service.d/data-mount.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/data
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: containerd.service drop-in 디렉토리 생성
+  file:
+    path: /etc/systemd/system/containerd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: containerd.service RequiresMountsFor=/data drop-in
+  copy:
+    dest: /etc/systemd/system/containerd.service.d/data-mount.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/data
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+# containerd config — root를 /data/containerd로 override
+# containerd config default 전체 생성 후 root만 변경 (containerd 2.x config 포맷 안전)
+- name: containerd config.toml 배포 (root=/data/containerd)
+  shell: |
+    set -e
+    containerd config default > /etc/containerd/config.toml
+    sed -i 's|^root = .*|root = "/data/containerd"|' /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+  notify: restart containerd
+
+# Docker daemon.json — data-root + 로그 로테이션
+- name: Docker daemon.json 배포 (data-root + 로그 로테이션)
+  copy:
+    dest: /etc/docker/daemon.json
+    content: '{"data-root":"/data/docker","log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}'
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart docker
+
+# 서비스 활성화 (containerd 먼저 — docker.service가 containerd에 의존)
+- name: containerd 서비스 활성화
+  service:
+    name: containerd
+    state: started
+    enabled: yes
+
+- name: Docker 서비스 활성화
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Proxy Docker 네트워크 확인
+  ansible.builtin.command: docker network inspect proxy
+  register: proxy_network
+  changed_when: false
+  failed_when: false
+
+- name: Proxy Docker 네트워크 생성
+  ansible.builtin.command: docker network create proxy
+  when: proxy_network.rc != 0
 
 # 공유 Git 디렉토리 (hermes UID:10000 + code-server UID:1001 공유)
 # POSIX ACL로 두 UID 모두 rwx 부여. ACL 없으면 다른 UID는 other로 분류되어 쓰기 불가.
