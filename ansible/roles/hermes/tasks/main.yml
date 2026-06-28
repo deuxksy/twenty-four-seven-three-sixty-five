@@ -207,18 +207,23 @@
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
-- name: Hermes backup 스크립트 배포
+- name: Hermes backup 스크립트 배포 (컨테이너 /opt/data/backup.sh)
   template:
     src: backup.sh.j2
-    dest: /data/hermes/backup.sh
-    owner: root
-    group: root
+    dest: /data/hermes/data/backup.sh
+    owner: "10000"
+    group: "10000"
     mode: "0755"
 
-- name: Hermes backup cron 설정 (하루 4회, hermes 권한으로 실행)
+- name: 구 backup.sh 제거 (/data/hermes/backup.sh)
+  file:
+    path: /data/hermes/backup.sh
+    state: absent
+
+- name: Hermes backup cron 설정 (일 1회, flock + docker exec)
   cron:
     name: "hermes-backup"
     minute: "10"
-    hour: "3,9,15,21"
-    job: "sudo -u #10000 /bin/bash -c '/data/hermes/backup.sh' >> /data/hermes/backup.log 2>&1"
+    hour: "3"
+    job: "flock -n /data/hermes/backup.lock docker exec hermes /opt/data/backup.sh >> /data/hermes/backup.log 2>&1"
     user: root
