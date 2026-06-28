@@ -161,6 +161,8 @@ graph TD
 - IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
 - zsh: ubuntu 기본 셸. code-server 터미널도 로그인 셸(zsh)을 따름
 - sops: `binary` role에서 GitHub release 바이너리 (`/usr/local/bin/sops`) 설치. 최신 유지 시 `--extra-vars sops_force=true`
+- sops dotenv 형식: `secrets/.env.sops`는 dotenv store(`export KEY=ENC[...]`)이나 `.sops` 확장자를 sops가 binary로 잘못 감지 → 복호화 시 `--input-type dotenv --output-type dotenv` 필수. 재암호화는 입력 파일을 `secrets/` 아래 두어 `.sops.yaml` path_regex(`^secrets/`) 매칭 (또는 `--age` 명시)
+- code-server 비밀번호: `CODE_SERVER_PASSWORD` (SOPS `.env.sops` 관리). docker-compose template가 `lookup('env', 'CODE_SERVER_PASSWORD')`로 주입, 기본 `changeme` fallback
 - packages: apt 패키지 모음 (age 등). 새 apt 도구는 이 role의 name 리스트에 추가
 - binary: GitHub release 바이너리 모음 (sops 등). 새 바이너리 도구는 이 role에 추가
 - mise: 사용자 범위 (`/home/ubuntu/.local/bin/mise`). Ansible은 non-login shell이라 `mise activate` 미동작 → role 내 모든 명령을 절대 경로로 호출, interactive shell용 활성화는 `.bashrc`/`.zshrc`에 별도 추가
