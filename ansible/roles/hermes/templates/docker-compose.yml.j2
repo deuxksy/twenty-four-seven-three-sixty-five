@@ -3,12 +3,13 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    user: "10000:10000"
     command: gateway run
     network_mode: host
     volumes:
       - /data/hermes/data:/opt/data
       - /data/git:/opt/data/git
-      - /home/ubuntu/.ssh:/opt/data/home/.ssh
+      - /data/hermes/ssh:/opt/data/home/.ssh
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
@@ -21,3 +22,4 @@ services:
       - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
       - ANTHROPIC_API_KEY={{ lookup('env', 'ANTHROPIC_API_KEY') }}
       - ANTHROPIC_API_BASE={{ lookup('env', 'ANTHROPIC_API_BASE') }}
+      - GITHUB_HERMES_TOKEN={{ lookup('env', 'GITHUB_HERMES_TOKEN') }}
