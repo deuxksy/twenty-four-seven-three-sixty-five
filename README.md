@@ -55,3 +55,20 @@ Homepage의 Transmission/Jellyfin/Aria2 링크는 기존 Heritage 서비스를 �
 가리킨다. Gatus와 Beszel 런타임 데이터는 대상 호스트에서 새로 생성된다.
 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME` 및
 `HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치하게 생성하거나 해당 값을 갱신해야 한다.
+
+## AI Agent (Hermes)
+
+`brla`에 `nousresearch/hermes-agent` 컨테이너(`network_mode: host`)를 배포한다.
+AI provider는 Tailscale Aperture 경유로 `glm-5-turbo`를 사용하며,
+`deuxksy/ai-brla` repo에 하루 4회(03:10/09:10/15:10/21:10) SQLite dump를
+자동 백업한다. 컨테이너는 UID 10000으로 `/data/hermes/data`를 소유한다.
+
+| 컴포넌트 | 포트 | URL |
+| :--- | :--- | :--- |
+| Gateway | `8642` | health check용 (`127.0.0.1` bind, 컨테이너 내부) |
+| Dashboard | `9119` | `https://brla.bun-bull.ts.net:9119` (basic_auth) |
+
+Dashboard는 컨테이너 내 `9120` 포트에서 basic_auth로 동작하고(`HOST=0.0.0.0`),
+Tailscale Serve가 `9119` HTTPS로 종단하여 `127.0.0.1:9120`으로 프록시한다.
+인증 정보는 SOPS의 `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` /
+`HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`를 사용한다.
