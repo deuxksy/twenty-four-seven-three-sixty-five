@@ -158,6 +158,8 @@ graph TD
 - Hermes Git 백업: `deuxksy/ai-brla` repo에 **일 1회** (03:10) 자동 백업. 호스트 root cron이 `flock -n /data/hermes/backup.lock docker exec hermes /opt/data/backup.sh` 실행 (컨테이너 UID 10000). SQLite online backup API → `gzip -9n` (state.db.sql.gz ≈ 39MB, GitHub 100MB 이하). `GITHUB_HERMES_TOKEN` env (docker-compose 주입, push 시점 transient). remote는 clean URL (`.git/config` token 잔존 없음). 복원: clone → `gunzip sql/*.sql.gz` → `python3 sqlite3 import`. 기존 4회/일 호스트 실행에서 전환 (`.git` 재초기화 + force push, archive tag 보존)
 - SSH IdentitiesOnly: 글로벌 `IdentitiesOnly yes` + `IdentityFile ~/.ssh/id_ed25519` + `IdentityFile ~/.ssh/AI/id_ed25519` 로 해결. 별도 `ansible/ssh_config` 불필요
 - Docker 로그 로테이션: `/etc/docker/daemon.json`으로 `max-size: 10m`, `max-file: 3`. **신규 컨테이너에만 적용** — 기존 컨테이너는 `docker compose down && up`으로 재생성 필요
+- Docker data-root 이동 (Block Volume 활용): daemon.json `data-root=/data/docker` + containerd `config.toml` `root=/data/containerd`. 루트 볼륨(48G) 부담을 Block Volume(64G)으로 분리. systemd drop-in `RequiresMountsFor=/data`(`docker.service.d`/`containerd.service.d`)로 부팅 시 /data 마운트 후 데몬 시작 보장
+- **containerd image store (Docker 29+ default)**: 이미지/레이어 데이터가 `/var/lib/docker`가 아닌 **`/var/lib/containerd`**에 저장됨. data-root만 `/data/docker`로 바꾸면 이미지 누락 → containerd root도 `/data/containerd`로 함께 이동 필수. docker role(tasks/main.yml)이 /data 마운트 → 디렉토리 생성 → containerd config → daemon.json 순서로 배치
 - IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
 - zsh: ubuntu 기본 셸. code-server 터미널도 로그인 셸(zsh)을 따름
 - sops: `binary` role에서 GitHub release 바이너리 (`/usr/local/bin/sops`) 설치. 최신 유지 시 `--extra-vars sops_force=true`
@@ -177,7 +179,7 @@ graph TD
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
+- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
 
@@ -202,7 +204,7 @@ ansible/                 # Ansible
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
     ├── tailscale/       # exit node, IP forwarding, HTTPS cert 발급, Serve 포트 기반 라우팅
-    ├── docker/          # Docker Engine + Compose, /data 마운트
+    ├── docker/          # Docker Engine + Compose, /data 마운트, data-root=/data/docker + containerd root=/data/containerd, systemd drop-in RequiresMountsFor=/data
     ├── packages/        # apt 패키지 모음 (age 등)
     ├── binary/          # GitHub release 바이너리 모음 (sops 등)
     ├── zsh/             # zsh + oh-my-zsh + ubuntu 기본 셸 전환
