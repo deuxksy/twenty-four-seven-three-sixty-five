@@ -85,37 +85,11 @@
   args:
     creates: /data/hermes/ssh/id_ed25519
 
-- name: Hermes 컨테이너 시작
-  shell: docker compose up -d
-  args:
-    chdir: /data/hermes
-  become: yes
-
-# --- 컨테이너 내부 도구 설치 (uv tool) ---
-
-- name: shell-gpt 설치 (uv tool)
-  shell: >
-    docker exec hermes bash -lc "uv tool install shell-gpt &&
-    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
-  become: true
-  register: sgpt_install
-  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
-
-- name: shell-gpt 설정 파일 배포
-  template:
-    src: sgptrc.j2
-    dest: /data/hermes/data/home/.config/shell_gpt/.sgptrc
-    owner: "10000"
-    group: "10000"
-    mode: "0644"
-
-# --- .git 권한 수정 (hermes UID:10000) ---
+# --- Git 백업 & 복원 (컨테이너 시작 전 데이터 준비)
 
 - name: .git 디렉토리 소유권 변경 (hermes)
   shell: chown -R 10000:10000 /data/hermes/data/.git
   become: true
-
-# --- Git 백업 & 복원 설정 ---
 
 - name: Git 글로벌 설정 (root)
   git_config:
@@ -143,7 +117,7 @@
         state: directory
         mode: "0700"
 
-    - name: "ai-brla repo clone (token auth)"
+    - name: "ai-brla repo clone (transient token)"
       git:
         repo: "https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git"
         dest: /tmp/hermes-restore
@@ -160,6 +134,23 @@
         cp -a /tmp/hermes-restore/.git /data/hermes/data/.git 2>/dev/null || true
       become: true
 
+    - name: "복원 repo remote를 clean URL로 정리 (token 제거)"
+      shell: >
+        git -C /data/hermes/data remote set-url origin https://github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
+      become: true
+
+    - name: "SQL dump 압축 해제 + SQLite import"
+      shell: |
+        cd /data/hermes/data
+        if ls sql/*.sql.gz 1>/dev/null 2>&1; then
+          gunzip -kf sql/*.sql.gz
+          for sql in sql/*.sql; do
+            db=$(basename "$sql" .sql)
+            python3 -c "import sqlite3; c=sqlite3.connect('$db'); c.executescript(open('$sql').read()); c.close()"
+          done
+        fi
+      become: true
+
     - name: "복원 디렉토리 정리"
       file:
         path: /tmp/hermes-restore
@@ -174,7 +165,7 @@
 
     - name: "복원 완료 로그"
       debug:
-        msg: "✅ ai-brla repo에서 Hermes 데이터 복원 완료"
+        msg: "✅ ai-brla repo에서 Hermes 데이터 복원 + SQL import 완료"
   when:
     - hermes_git_remote.rc != 0
     - lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
@@ -187,10 +178,10 @@
     group: "10000"
     mode: "0644"
 
-- name: GitHub remote 등록 (복원 후 또는 최초)
+- name: GitHub remote 등록 (clean URL — token 없음)
   shell: >
     git remote get-url origin 2>/dev/null ||
-    git remote add origin https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
+    git remote add origin https://github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
@@ -199,13 +190,42 @@
   shell: chown -R 10000:10000 /data/hermes/data/.git
   become: true
 
-- name: 초기 커밋 + push (최초 1회)
+- name: 초기 커밋 + push (최초 1회, transient token)
   shell: >
     git add -A &&
-    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }} <{{ git_user_email | default('deuxksy@gmail.com') }}>" && git push -u origin main)
+    git diff --cached --quiet || (git -c user.name="{{ git_user_name | default('Crong') }}" -c user.email="{{ git_user_email | default('deuxksy@gmail.com') }}" commit -m "init: Hermes backup" &&
+    git push "https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git" HEAD:main)
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
+
+# --- 컨테이너 시작 (데이터 준비 완료 후)
+
+- name: Hermes 컨테이너 시작
+  shell: docker compose up -d
+  args:
+    chdir: /data/hermes
+  become: yes
+
+# --- 컨테이너 내부 도구 설치 (uv tool)
+
+- name: shell-gpt 설치 (uv tool)
+  shell: >
+    docker exec hermes bash -lc "uv tool install shell-gpt &&
+    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
+  become: true
+  register: sgpt_install
+  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
+
+- name: shell-gpt 설정 파일 배포
+  template:
+    src: sgptrc.j2
+    dest: /data/hermes/data/home/.config/shell_gpt/.sgptrc
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
+
+# --- 백업 스크립트 + cron
 
 - name: Hermes backup 스크립트 배포 (컨테이너 /opt/data/backup.sh)
   template:
