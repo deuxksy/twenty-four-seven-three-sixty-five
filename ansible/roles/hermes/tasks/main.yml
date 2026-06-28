@@ -70,6 +70,21 @@
     group: "10000"
     mode: "0644"
 
+# --- Hermes SSH 폴더 (UID 10000, data 밖 — secret 분리)
+
+- name: Hermes SSH 폴더 생성 (/data/hermes/ssh)
+  file:
+    path: /data/hermes/ssh
+    state: directory
+    owner: "10000"
+    group: "10000"
+    mode: "0700"
+
+- name: 호스트 SSH key를 Hermes SSH 폴더로 복사
+  shell: cp -a /home/ubuntu/.ssh/. /data/hermes/ssh/ && chown -R 10000:10000 /data/hermes/ssh && chmod 700 /data/hermes/ssh
+  args:
+    creates: /data/hermes/ssh/id_ed25519
+
 - name: Hermes 컨테이너 시작
   shell: docker compose up -d
   args:
