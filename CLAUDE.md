@@ -224,6 +224,7 @@ ansible/                 # Ansible
         ├── templates/sgptrc.j2      # shell-gpt 설정
         └── templates/ssh_config.j2  # 호스트 SSH config (Tailscale 호스트 접속용)
 
+.claude/settings.json   # Claude Code hook — ansible YAML/tofu .tf 편집 시 syntax-check/fmt 자동 실행
 .claude/skills/          # Claude Code 스킬
 ├── deploy-infra/SKILL.md       # 전체 배포 파이프라인
 ├── tailscale-serve-sync/SKILL.md # Tailscale Serve 라우팅 동기화
