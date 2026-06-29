@@ -10,16 +10,5 @@ services:
       - /data/hermes/data:/opt/data
       - /data/git:/opt/data/git
       - /data/hermes/ssh:/opt/data/home/.ssh
-    environment:
-      - TZ=Asia/Seoul
-      - HERMES_DASHBOARD=1
-      - HERMES_DASHBOARD_HOST=0.0.0.0
-      - HERMES_DASHBOARD_PORT=9120
-      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME={{ lookup('env', 'HERMES_DASHBOARD_BASIC_AUTH_USERNAME') }}
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD={{ lookup('env', 'HERMES_DASHBOARD_BASIC_AUTH_PASSWORD') }}
-      - API_SERVER_KEY={{ lookup('env', 'HERMES_API_SERVER_KEY') }}
-      - DISCORD_BOT_TOKEN={{ lookup('env', 'DISCORD_BOT_TOKEN') }}
-      - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
-      - ANTHROPIC_API_KEY={{ lookup('env', 'ANTHROPIC_API_KEY') }}
-      - ANTHROPIC_API_BASE={{ lookup('env', 'ANTHROPIC_API_BASE') }}
-      - GITHUB_HERMES_TOKEN={{ lookup('env', 'GITHUB_HERMES_TOKEN') }}
+    env_file:
+      - /data/hermes/data/.env

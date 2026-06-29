@@ -1,0 +1,7 @@
+# ansible/playbook-hermes-only.yml
+---
+- name: Hermes only
+  hosts: brla
+  become: yes
+  roles:
+    - role: hermes

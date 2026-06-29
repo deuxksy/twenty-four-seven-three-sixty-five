@@ -137,6 +137,7 @@ graph TD
 ## Gotchas
 
 - `.env.local`의 `dec`/`load`는 alias — Claude Code Bash(비대화형)에서 인식 안 됨. 직접 함수명 `sops-dec`, `sops-load` 또는 raw `sops -d` 명령 사용
+- **Ansible + SOPS 실행**: Claude Code Bash는 각 호출이 독립 셸 → `source .env`와 `ansible-playbook`을 반드시 **단일 명령**으로 실행해야 `lookup('env', ...)`가 SOPS 복호화 값을 인식함. 분리 실행 시 환경변수가 유실되어 `.env`에 빈 값 기록 → 컨테이너 미기동
 - cloud-init(`user_data`) 변경 시 OCI 인스턴스 재생성(destroy+recreate) → **Public IP 변경**. cloud-init은 최소화(Tailscale 설치만)하고 설정은 Ansible로 처리
 - `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
 - Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
@@ -144,11 +145,11 @@ graph TD
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - code-server 컨테이너는 ubuntu UID 1001과 매칭 (`user: "1001:1001"`) → 호스트에서 파일 조작 가능 (sudo 불필요)
 - brla 컨테이너 포트는 항상 `127.0.0.1:<port>:<port>`로 바인딩. `tailscale serve`가 Tailscale IP에서 HTTPS 종단 후 `127.0.0.1:<port>`로 프록시. `0.0.0.0:<port>`(또는 `<port>:<port>`) 바인딩 시 tailscaled가 점유한 Tailscale IP 포트와 충돌 (`address already in use`)
-- Hermes API 키/토큰은 docker-compose `environment:`에서 Ansible로 직접 주입 (별도 `.env` 파일 사전 작성 불필요)
+- Hermes 환경변수는 `env_file: /data/hermes/data/.env`로 주입 (Ansible `env.j2` 템플릿이 생성). docker-compose `environment:` 불필요
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_HOST=0.0.0.0` + `HERMES_DASHBOARD_PORT=9120` + basic_auth (`HERMES_DASHBOARD_BASIC_AUTH_USERNAME`/`_PASSWORD`, SOPS 관리)
-- Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `glm-5-turbo`, `api_mode: anthropic_messages`
+- Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `dola-seed-2.0-lite`, `api_mode: anthropic_messages`
 - Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard는 `HERMES_DASHBOARD_HOST=0.0.0.0` + `PORT=9120`로 bind — 2026-06 hardening으로 non-loopback bind 시 auth provider 필수(`HERMES_DASHBOARD_INSECURE`는 no-op) → basic_auth 설정. `0.0.0.0` wildcard라 Host 검증 통과. tailscale serve `:9119 → http://127.0.0.1:9120` 프록시(HTTPS 종단). 접근: `https://brla.bun-bull.ts.net:9119` (basic_auth form 로그인)
 - Hermes gateway(8642)는 Hermes 프로세스가 `127.0.0.1`에 직접 bind (health check용)
 - Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
@@ -217,7 +218,7 @@ ansible/                 # Ansible
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run (network_mode: host)
         ├── files/gitignore          # 백업 제외 규칙
         ├── templates/backup.sh.j2   # Git 백업 스크립트 (cron 실행)
-        ├── templates/config.yaml.j2 # Hermes AI provider/model 설정 (Aperture, glm-5-turbo)
+        ├── templates/config.yaml.j2 # Hermes AI provider/model 설정 (Aperture, dola-seed-2.0-lite)
         ├── templates/docker-compose.yml.j2  # Ansible 생성
         ├── templates/env.j2         # Hermes 환경변수
         ├── templates/sgptrc.j2      # shell-gpt 설정
@@ -228,9 +229,12 @@ ansible/                 # Ansible
 ├── tailscale-serve-sync/SKILL.md # Tailscale Serve 라우팅 동기화
 ├── update-service/SKILL.md     # 개별 서비스 업데이트
 ├── add-ansible-role/SKILL.md   # role 추가 워크플로우 (설치 방식별 배치)
+├── cross-verify/SKILL.md       # 교차 검증 (Ansible syntax-check + tofu fmt)
+├── docker-maintenance/SKILL.md # Docker 정리 (prune, 볼륨 조회)
 └── verify-infra/SKILL.md       # 인프라 상태 검증
 
 .claude/agents/          # Claude Code 서브에이전트
 ├── ansible-role-reviewer.md  # role 변경사항 품질 검증 (멱등성, become_user, non-login shell)
-└── infra-reviewer.md         # 인프라 관점 리뷰 (보안/비용/가용성)
+├── infra-reviewer.md         # 인프라 관점 리뷰 (보안/비용/가용성)
+└── tofu-plan-reviewer.md     # tofu plan 파괴적 변경 감지 (재생성, IP 변경, 리소스 삭제)
 ```
