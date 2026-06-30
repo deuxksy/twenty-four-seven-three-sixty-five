@@ -158,27 +158,23 @@
   when: proxy_network.rc != 0
 
 # 공유 Git 디렉토리 (hermes UID:10000 + code-server UID:1001 공유)
-# POSIX ACL로 두 UID 모두 rwx 부여. ACL 없으면 다른 UID는 other로 분류되어 쓰기 불가.
-- name: acl 패키지 설치 (POSIX ACL)
-  apt:
-    name: acl
+# shared group(gitshare, GID 10001) + setgid(2775)로 두 UID 모두 rw. POSIX ACL 불필요.
+- name: 공유 그룹 생성 (gitshare, GID 10001)
+  group:
+    name: gitshare
+    gid: 10001
     state: present
 
-- name: 공유 Git 디렉토리 생성 (/data/git)
+- name: 공유 Git 디렉토리 생성 (/data/git, setgid 2775)
   file:
     path: /data/git
     state: directory
     owner: ubuntu
-    group: ubuntu
+    group: gitshare
     mode: "2775"
 
-- name: 공유 Git 디렉토리 현재 ACL 확인
-  ansible.builtin.command: getfacl /data/git
-  register: git_acl_current
-  changed_when: false
-
-- name: 공유 Git 디렉토리 ACL 설정 (hermes 10000 + code-server 1001 양방향 rwx)
-  ansible.builtin.command: setfacl -m u:10000:rwx -m d:u:10000:rwx -m d:u:1001:rwx /data/git
-  when:
-    - "'user:10000:rwx' not in git_acl_current.stdout"
-    - "'default:user:1001:rwx' not in git_acl_current.stdout"
+- name: ubuntu 유저를 gitshare 보조 그룹에 추가
+  user:
+    name: ubuntu
+    groups: gitshare
+    append: yes

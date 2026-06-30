@@ -1,5 +1,17 @@
 # ansible/roles/hermes/tasks/main.yml
 
+# 호스트 UID 10000을 system user로 등록 (컨테이너 UID와 동일 — UID 변경 아님)
+# /data/git 공유 디렉토리 접근을 위해 gitshare(GID 10001) 보조 그룹 부여
+- name: Hermes 호스트 유저 등록 (UID 10000, system)
+  user:
+    name: hermes
+    uid: 10000
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+    groups: gitshare
+    append: yes
+
 - name: Hermes 데이터 디렉토리 생성
   file:
     path: /data/hermes
@@ -87,10 +99,17 @@
 
 # --- Git 백업 & 복원 (컨테이너 시작 전 데이터 준비)
 
-- name: .git 디렉토리 소유권 변경 (hermes)
-  shell: chown -R 10000:10000 /data/hermes/data/.git
+- name: .git 디렉토리 소유권 변경 - 복원 전 (hermes)
+  file:
+    path: /data/hermes/data/.git
+    owner: "10000"
+    group: "10000"
+    recurse: yes
   become: true
+  changed_when: false
 
+# 호스트 전용 git 설정 (root 계정 글로벌) — 컨테이너 내부 git과 별개
+# 컨테이너 UID 10000은 별도 HOME(/opt/data/home)에서 동작하므로 이 설정에 영향받지 않음
 - name: Git 글로벌 설정 (root)
   git_config:
     name: "{{ item.key }}"
@@ -100,6 +119,21 @@
     - { key: "user.name", value: "{{ git_user_name | default('Crong') }}" }
     - { key: "user.email", value: "{{ git_user_email | default('deuxksy@gmail.com') }}" }
     - { key: "safe.directory", value: "/data/hermes/data" }
+
+- name: 공유 Git repo 초기화 (/data/git, --shared=group)
+  command: git init --shared=group /data/git
+  args:
+    creates: /data/git/.git
+  become: true
+
+- name: /data/git/.git 소유권 정규화 (ubuntu:gitshare)
+  file:
+    path: /data/git/.git
+    owner: ubuntu
+    group: gitshare
+    recurse: yes
+  become: true
+  changed_when: false
 
 - name: GitHub remote URL 확인
   shell: git remote get-url origin 2>/dev/null
@@ -186,9 +220,14 @@
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
-- name: .git 디렉토리 소유권 변경 (hermes)
-  shell: chown -R 10000:10000 /data/hermes/data/.git
+- name: .git 디렉토리 소유권 변경 - push 전 (hermes)
+  file:
+    path: /data/hermes/data/.git
+    owner: "10000"
+    group: "10000"
+    recurse: yes
   become: true
+  changed_when: false
 
 - name: 초기 커밋 + push (최초 1회, transient token)
   shell: >

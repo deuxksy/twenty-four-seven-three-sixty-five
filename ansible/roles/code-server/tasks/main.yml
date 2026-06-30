@@ -1,5 +1,17 @@
 # ansible/roles/code-server/tasks/main.yml
 
+# 호스트 UID 1001을 system user로 등록 (컨테이너 UID와 동일 — UID 변경 아님)
+# /data/git 공유 디렉토리 접근을 위해 gitshare(GID 10001) 보조 그룹 부여
+- name: code-server 호스트 유저 등록 (UID 1001, system)
+  user:
+    name: coder
+    uid: 1001
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+    groups: gitshare
+    append: yes
+
 - name: code-server 디렉토리 생성
   file:
     path: /data/code-server

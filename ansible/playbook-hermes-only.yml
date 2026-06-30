@@ -3,5 +3,48 @@
 - name: Hermes only
   hosts: brla
   become: yes
+
+  pre_tasks:
+    - name: /data 마운트 상태 확인 (Block Volume)
+      ansible.builtin.command: findmnt -n -o SOURCE --target /data
+      register: data_mount_source
+      changed_when: false
+      failed_when: false
+
+    - name: /data 마운트 검증 (Block Volume이 마운트되어야 함)
+      ansible.builtin.assert:
+        that:
+          - data_mount_source.rc == 0
+          - data_mount_source.stdout | length > 0
+        fail_msg: "/data가 마운트되지 않음 — docker role(fstab + mount)을 먼저 실행하거나 Block Volume(/dev/oracleoci/oraclevdb)을 확인하세요"
+        success_msg: "/data 마운트 확인: {{ data_mount_source.stdout }}"
+
+    - name: gitshare 그룹 존재 여부 확인
+      ansible.builtin.command: getent group gitshare
+      register: gitshare_group
+      changed_when: false
+      failed_when: false
+
+    - name: gitshare 그룹 생성 fallback (docker role 미실행 시)
+      ansible.builtin.group:
+        name: gitshare
+        gid: 10001
+        state: present
+      when: gitshare_group.rc != 0
+
+    - name: ubuntu 유저를 gitshare 보조 그룹에 추가 (code-server 컨테이너 UID 1001 호환)
+      ansible.builtin.user:
+        name: ubuntu
+        groups: gitshare
+        append: yes
+
+    - name: 공유 Git 디렉토리 생성 fallback (/data/git, setgid 2775 - docker role 미실행 시)
+      ansible.builtin.file:
+        path: /data/git
+        state: directory
+        owner: ubuntu
+        group: gitshare
+        mode: "2775"
+
   roles:
     - role: hermes

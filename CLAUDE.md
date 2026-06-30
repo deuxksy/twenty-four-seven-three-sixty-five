@@ -179,8 +179,9 @@ graph TD
 - Tailscale 인증서 발급(`tailscale cert`)은 유지 — Tailscale Serve가 TLS termination에 사용
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
+- `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), Tailscale `41641/UDP` (vcn.tf Security List)
+- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), GID `10001`/gitshare 그룹 (docker role group task, code-server/hermes role user task), `/data/git` setgid `2775` 공유 디렉토리 — POSIX ACL 미사용, gitshare 보조 그룹으로 두 UID rw (docker role file task, code-server/hermes role groups), 호스트 유저 `coder`(UID 1001)/`hermes`(UID 10000) 시스템 등록 + gitshare 보조 그룹 부여 — 컨테이너 UID와 동일 (code-server/hermes role user task), `/data/git/.git` 소유권 `ubuntu:gitshare` 정규화 (hermes role `file` task, `git init --shared=group` 직후 실행 — git init이 root 소유권으로 생성되므로 hermes 컨테이너 UID 10000 + code-server UID 1001 접근 위해 recurse로 chown), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
 
@@ -202,6 +203,7 @@ ansible/                 # Ansible
 ├── inventory/hosts.ini  # tofu output으로 자동 생성
 ├── playbook-lt.yml      # lt: Tailscale exit node
 ├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + homepage + gatus + beszel + Hermes
+├── playbook-hermes-only.yml # brla: Hermes 단독 배포 (/data 마운트 검증 + gitshare fallback + hermes role만 실행)
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
     ├── tailscale/       # exit node, IP forwarding, HTTPS cert 발급, Serve 포트 기반 라우팅
