@@ -37,6 +37,26 @@
     group: ubuntu
     mode: "0644"
 
+- name: Hermes SSH 디렉토리 생성 (컨테이너용)
+  file:
+    path: /data/hermes/ssh
+    state: directory
+    owner: "10000"
+    group: "10000"
+    mode: "0700"
+
+- name: Hermes SSH 키 복사 (컨테이너용)
+  copy:
+    src: "{{ item }}"
+    dest: /data/hermes/ssh/{{ item | basename }}
+    owner: "10000"
+    group: "10000"
+    mode: "0600"
+  loop:
+    - /home/ubuntu/.ssh/id_ed25519
+    - /home/ubuntu/.ssh/id_ed25519.pub
+  ignore_errors: yes
+
 - name: Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2

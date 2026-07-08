@@ -80,3 +80,13 @@
   command: tailscale serve --bg --https 9119 --yes http://127.0.0.1:9119
   become: true
   when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — patchmon (8443)
+  command: tailscale serve --bg --https 8443 --yes http://127.0.0.1:3001
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — pulse (10000)
+  command: tailscale serve --bg --https 10000 --yes http://127.0.0.1:10001
+  become: true
+  when: not tailscale_exit_node | bool
