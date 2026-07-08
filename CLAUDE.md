@@ -66,7 +66,7 @@ curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net/          #
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8080/     # code-server
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8088/     # Gatus
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8090/     # Beszel
-curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/  # Hermes dashboard (basic_auth → 302/login)
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/login  # Hermes dashboard (루트 /는 미인증 시 500 → /login 우회)
 
 # 개발 도구 검증 (brla, code-server 터미널)
 mise --version && node -v && pnpm -v                                  # mise + Node.js 24 + pnpm
@@ -137,20 +137,25 @@ graph TD
 ## Gotchas
 
 - `.env.local`의 `dec`/`load`는 alias — Claude Code Bash(비대화형)에서 인식 안 됨. 직접 함수명 `sops-dec`, `sops-load` 또는 raw `sops -d` 명령 사용
+- `.env.local` source 시 `SOPS_AGE_KEY_FILE="$(pwd)/keys.txt"` 강제 (사전 env override 무효) — age 키가 다른 경로(`~/.config/sops/age/keys.txt`)면 루트에 `keys.txt` 심볼릭 링크 필요
 - **Ansible + SOPS 실행**: Claude Code Bash는 각 호출이 독립 셸 → `source .env`와 `ansible-playbook`을 반드시 **단일 명령**으로 실행해야 `lookup('env', ...)`가 SOPS 복호화 값을 인식함. 분리 실행 시 환경변수가 유실되어 `.env`에 빈 값 기록 → 컨테이너 미기동
 - cloud-init(`user_data`) 변경 시 OCI 인스턴스 재생성(destroy+recreate) → **Public IP 변경**. cloud-init은 최소화(Tailscale 설치만)하고 설정은 Ansible로 처리
 - `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
 - Tailscale cert DNS명에 trailing dot 포함 (`brla.bun-bull.ts.net.`) → `rstrip('.')` 처리
 - Tailscale 인증서 경로는 `/var/lib/tailscale/certs/` (not `/etc/tailscale/`)
-- Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
+- Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`) — 단, 이는 공인 IP/OCI 서브넷 라우팅용 tofu 생성 inventory 한정
+- `ansible/inventory/hosts.ini`는 gitignored + `tofu output -raw ansible_inventory_ini`로 생성. tofu(R2+OCI) 없이 hermes-only 배포 시 최소 inventory(`[brla]` + `brla ansible_user=ubuntu`)로 동작 — brla는 Tailscale MagicDNS로 직접 SSH 가능
 - code-server 컨테이너는 ubuntu UID 1001과 매칭 (`user: "1001:1001"`) → 호스트에서 파일 조작 가능 (sudo 불필요)
 - brla 컨테이너 포트는 항상 `127.0.0.1:<port>:<port>`로 바인딩. `tailscale serve`가 Tailscale IP에서 HTTPS 종단 후 `127.0.0.1:<port>`로 프록시. `0.0.0.0:<port>`(또는 `<port>:<port>`) 바인딩 시 tailscaled가 점유한 Tailscale IP 포트와 충돌 (`address already in use`)
 - Hermes 환경변수는 `env_file: /data/hermes/.env`로 주입 (Ansible `env.j2` 템플릿이 생성, host config — 컨테이너 볼륨 `/data/hermes/data/` 밖). docker-compose `environment:` 불필요
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
-- Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_HOST=0.0.0.0` + `HERMES_DASHBOARD_PORT=9120` + basic_auth (`HERMES_DASHBOARD_BASIC_AUTH_USERNAME`/`_PASSWORD`, SOPS 관리)
+- Hermes API server: `API_SERVER_KEY`(16자+ 필수 — 현재 이미지에서 16자 미만 시 api_server 기동 거부, gateway 8642 미동작), Dashboard: `HERMES_DASHBOARD_HOST=0.0.0.0` + `HERMES_DASHBOARD_PORT=9120` + basic_auth (`HERMES_DASHBOARD_BASIC_AUTH_USERNAME`/`_PASSWORD`, SOPS 관리)
 - Hermes AI: Tailscale Aperture 경유, base URL `http://ai`, provider `custom:aperture`, model `dola-seed-2.0-lite`, `api_mode: anthropic_messages`
 - Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard는 `HERMES_DASHBOARD_HOST=0.0.0.0` + `PORT=9120`로 bind — 2026-06 hardening으로 non-loopback bind 시 auth provider 필수(`HERMES_DASHBOARD_INSECURE`는 no-op) → basic_auth 설정. `0.0.0.0` wildcard라 Host 검증 통과. tailscale serve `:9119 → http://127.0.0.1:9120` 프록시(HTTPS 종단). 접근: `https://brla.bun-bull.ts.net:9119` (basic_auth form 로그인)
+- Hermes dashboard serve 외부 포트(9119)는 bind 포트(9120)와 **달라야 함** — hermes가 `0.0.0.0:9120`을 잡으면 tailscaled의 Tailscale IP:9120과 충돌 (`address already in use`). 같은 포트(9120/9120)를 쓰려면 hermes를 127.0.0.1로 해야 하나, 그럼 외부 hostname Host가 거부됨(400)
+- Hermes dashboard Host 검증은 bind 주소에 **hardcoded (allowlist config 없음)** — `0.0.0.0`=모든 Host 허용, `127.0.0.1`=loopback Host만. 외부 hostname 접속엔 `0.0.0.0` 강제 (`--allowed-hosts` flag는 PR #37119 미출시, #34390 참조)
+- Hermes dashboard 미인증 `/` → 302 → **500** (Hermes 버그 #58166: basic-auth-only + non-loopback bind 시 auto-SSO redirect가 `/auth/login?provider=basic`으로 빠져 `NotImplementedError`). `/login`으로 직접 접속 우회, 로그인 후 `/` 정상(200). fix #58166 포함 이미지로 갱신 시 해소 예상
 - Hermes gateway(8642)는 Hermes 프로세스가 `127.0.0.1`에 직접 bind (health check용)
 - Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
 - Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
@@ -181,6 +186,7 @@ graph TD
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
+- `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), GID `10001`/gitshare 그룹 (docker role group task, code-server/hermes role user task), `/data/git` setgid `2775` 공유 디렉토리 — POSIX ACL 미사용, gitshare 보조 그룹으로 두 UID rw (docker role file task, code-server/hermes role groups), 호스트 유저 `coder`(UID 1001)/`hermes`(UID 10000) 시스템 등록 + gitshare 보조 그룹 부여 — 컨테이너 UID와 동일 (code-server/hermes role user task), `/data/git/.git` 소유권 `ubuntu:gitshare` 정규화 (hermes role `file` task, `git init --shared=group` 직후 실행 — git init이 root 소유권으로 생성되므로 hermes 컨테이너 UID 10000 + code-server UID 1001 접근 위해 recurse로 chown), Tailscale `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
