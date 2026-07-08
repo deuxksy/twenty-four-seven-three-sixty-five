@@ -14,9 +14,9 @@
     - "24/7/365":
         - abbr: "247"
           href: https://github.com/deuxksy/twenty-four-seven-three-sixty-five
-    - Github:
-        - abbr: GH
-          href: https://github.com/deuxksy
+    - Homelab:
+        - abbr: HL
+          href: https://github.com/deuxksy/homelab
     - dotfiles:
         - abbr: DF
           href: https://github.com/deuxksy/dotfiles

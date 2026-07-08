@@ -72,6 +72,7 @@
 
     - code-server:
         label: "VS Code Server"
+        icon: code.png
         href: https://brla.bun-bull.ts.net:8080
         server: my-docker
         container: code-server
