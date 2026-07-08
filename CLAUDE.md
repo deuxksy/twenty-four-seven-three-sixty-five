@@ -164,7 +164,7 @@ graph TD
 - IP forwarding: cloud-init에서 제거, Ansible tailscale role에서만 설정. `tofu apply` 직후 Ansible을 즉시 실행해야 exit node 정상 동작
 - zsh: ubuntu 기본 셸. code-server 터미널도 로그인 셸(zsh)을 따름
 - sops: `binary` role에서 GitHub release 바이너리 (`/usr/local/bin/sops`) 설치. 최신 유지 시 `--extra-vars sops_force=true`
-- sops dotenv 형식: `secrets/.env.sops`는 dotenv store(`export KEY=ENC[...]`)이나 `.sops` 확장자를 sops가 binary로 잘못 감지 → 복호화 시 `--input-type dotenv --output-type dotenv` 필수. 재암호화는 입력 파일을 `secrets/` 아래 두어 `.sops.yaml` path_regex(`^secrets/`) 매칭 (또는 `--age` 명시)
+- sops binary 형식: `secrets/.env.sops`는 binary store(전체 평문을 단일 `data` ENC 블롭으로 암호화). `.env.local`의 `sops-dec`/`sops-enc`가 `--input-type binary --output-type binary`로 동작하므로 포맷 일치. 암호화 시 `.sops.yaml` path_regex(`^secrets/`) 매칭으로 age 키 자동 적용 (binary store는 self-describing이라 auto-detect도 정상 동작)
 - code-server 비밀번호: `CODE_SERVER_PASSWORD` (SOPS `.env.sops` 관리). docker-compose template가 `lookup('env', 'CODE_SERVER_PASSWORD')`로 주입, 기본 `changeme` fallback
 - packages: apt 패키지 모음 (age 등). 새 apt 도구는 이 role의 name 리스트에 추가
 - binary: GitHub release 바이너리 모음 (sops 등). 새 바이너리 도구는 이 role에 추가
