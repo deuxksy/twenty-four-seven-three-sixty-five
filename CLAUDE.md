@@ -145,7 +145,7 @@ graph TD
 - Ansible inventory: brla 접속 시 lt를 ProxyJump로 사용 (`-o ProxyJump=ubuntu@<lt_ip>`)
 - code-server 컨테이너는 ubuntu UID 1001과 매칭 (`user: "1001:1001"`) → 호스트에서 파일 조작 가능 (sudo 불필요)
 - brla 컨테이너 포트는 항상 `127.0.0.1:<port>:<port>`로 바인딩. `tailscale serve`가 Tailscale IP에서 HTTPS 종단 후 `127.0.0.1:<port>`로 프록시. `0.0.0.0:<port>`(또는 `<port>:<port>`) 바인딩 시 tailscaled가 점유한 Tailscale IP 포트와 충돌 (`address already in use`)
-- Hermes 환경변수는 `env_file: /data/hermes/data/.env`로 주입 (Ansible `env.j2` 템플릿이 생성). docker-compose `environment:` 불필요
+- Hermes 환경변수는 `env_file: /data/hermes/.env`로 주입 (Ansible `env.j2` 템플릿이 생성, host config — 컨테이너 볼륨 `/data/hermes/data/` 밖). docker-compose `environment:` 불필요
 - Hermes 컨테이너는 UID 10000으로 `/data/hermes/data` 소유권 변경 → 호스트에서 파일 조작 시 `sudo` 필요
 - Hermes 데이터 구조: `/data/hermes/data/` (실제 데이터, 디렉토리 마운트), `/data/hermes/docker-compose.yml` (Ansible 생성)
 - Hermes API server: `API_SERVER_KEY`(8자+) 필수, Dashboard: `HERMES_DASHBOARD_HOST=0.0.0.0` + `HERMES_DASHBOARD_PORT=9120` + basic_auth (`HERMES_DASHBOARD_BASIC_AUTH_USERNAME`/`_PASSWORD`, SOPS 관리)
