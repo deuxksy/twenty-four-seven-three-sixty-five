@@ -82,16 +82,16 @@
 
 - name: Hermes .env 존재 확인
   stat:
-    path: /data/hermes/data/.env
+    path: /data/hermes/.env
   register: hermes_env
 
 - name: Hermes .env 생성 (최초 1회)
   template:
     src: env.j2
-    dest: /data/hermes/data/.env
-    owner: "10000"
-    group: "10000"
-    mode: "0644"
+    dest: /data/hermes/.env
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
   when: not hermes_env.stat.exists
 
 - name: Hermes config.yaml 생성

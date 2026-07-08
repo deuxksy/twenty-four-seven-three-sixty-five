@@ -11,7 +11,7 @@ services:
       - /data/git:/opt/data/git
       - /data/hermes/ssh:/opt/data/home/.ssh
     env_file:
-      - /data/hermes/data/.env
+      - /data/hermes/.env
     environment:
       - TZ=Asia/Seoul
       - HERMES_DASHBOARD=1
