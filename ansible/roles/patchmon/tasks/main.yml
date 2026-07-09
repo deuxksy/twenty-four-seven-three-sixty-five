@@ -1,0 +1,39 @@
+# ansible/roles/patchmon/tasks/main.yml
+
+# Patchmon - 패치 모니터링 서비스 (docker-compose)
+# /data/patchmon/ 에 배포. Docker named volume(postgres_data, redis_data)은
+# data-root(/data/docker/volumes/)에 저장 — Block Volume 활용.
+
+- name: Patchmon 데이터 디렉토리 생성
+  file:
+    path: /data/patchmon
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: Docker Compose 파일 생성
+  template:
+    src: docker-compose.yml.j2
+    dest: /data/patchmon/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+
+- name: Patchmon .env 존재 확인
+  stat:
+    path: /data/patchmon/.env
+  register: patchmon_env
+
+- name: Patchmon .env 생성 (최초 1회)
+  template:
+    src: env.j2
+    dest: /data/patchmon/.env
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+  when: not patchmon_env.stat.exists
+
+- name: Patchmon 컨테이너 시작
+  shell: docker compose up -d
+  args:
+    chdir: /data/patchmon
+  become: yes

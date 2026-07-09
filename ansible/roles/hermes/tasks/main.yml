@@ -266,6 +266,31 @@
     chdir: /data/hermes
   become: yes
 
+# --- Hermes #58166 우회 (미출시 업스트림 버그)
+# 미인증 / 방문 시 auto-SSO 가 /auth/login?provider=basic 로 빠져 NotImplementedError(500).
+# basic provider 는 password-only 라 OAuth redirect 없음 → /login 폼으로 폴백.
+# #58166 머지/릴리스(fix 포함 이미지) 시 이 블록 제거.
+
+- name: Hermes #58166 패치 스크립트 배포 (host)
+  copy:
+    src: patch_hermes_58166.py
+    dest: /data/hermes/patch_hermes_58166.py
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Hermes #58166 패치 적용 (basic provider auto-SSO skip → /login 폴백)
+  shell: docker exec -i -u 0 hermes python - < /data/hermes/patch_hermes_58166.py
+  register: hermes_58166_patch
+  changed_when: "'PATCHED' in hermes_58166_patch.stdout"
+  become: yes
+
+- name: Hermes 컨테이너 재시작 (#58166 패치 반영)
+  shell: docker restart hermes
+  become: yes
+  when: hermes_58166_patch.changed
+
+
 # --- 컨테이너 내부 도구 설치 (uv tool)
 
 - name: shell-gpt 설치 (uv tool)

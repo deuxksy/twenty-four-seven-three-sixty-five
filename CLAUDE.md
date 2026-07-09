@@ -60,13 +60,17 @@ curl -s -o /dev/null -w '%{http_code}' http://localhost:8088           # Gatus
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8090           # Beszel
 curl -s -o /dev/null -w '%{http_code}' http://localhost:9120           # Hermes dashboard (0.0.0.0 bind, basic_auth → 302)
 curl -s -o /dev/null -w '%{http_code}' http://localhost:8642/health    # Hermes gateway (host 포트매핑)
+curl -s -o /dev/null -w '%{http_code}' http://localhost:3001           # Patchmon (server, docker-compose)
+curl -s -o /dev/null -w '%{http_code}' http://localhost:10001          # Pulse (모니터링, docker-compose)
 
 # 외부 접근 (Tailscale Serve HTTPS — brla.bun-bull.ts.net)
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net/          # Homepage (443)
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8080/     # code-server
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8088/     # Gatus
 curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8090/     # Beszel
-curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/login  # Hermes dashboard (루트 /는 미인증 시 500 → /login 우회)
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:9119/login  # Hermes dashboard (basic_auth 로그인 폼; 루트 /도 #58166 패치로 /login 폴백)
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:8443/       # Patchmon
+curl -sk -o /dev/null -w '%{http_code}' https://brla.bun-bull.ts.net:10000/      # Pulse
 
 # 개발 도구 검증 (brla, code-server 터미널)
 mise --version && node -v && pnpm -v                                  # mise + Node.js 24 + pnpm
@@ -108,7 +112,7 @@ graph TD
 - **SOPS binary 모드**: `.env`에 PEM 키, 멀티라인 값 등 특수문자가 포함되어 `--input-type binary`로 인코딩 문제를 우회함
 - **State Backend**: Cloudflare R2 (S3-compatible). 버킷(`terraform-state`)은 수동 생성
 - **Hostnames**: `lt`(L-T, 조명 로봇), `brla`(BRL-A, 파라솔 로봇) — WALL-E 세계관
-- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`) — Homepage(443), code-server(8080), Gatus(8088), Beszel(8090), Hermes dashboard(9119→9120, basic_auth)
+- **HTTPS**: Tailscale Serve 포트 기반 HTTPS 종단 (인증서 `/var/lib/tailscale/certs/`, `*.bun-bull.ts.net`) — Homepage(443), code-server(8080), Gatus(8088), Beszel(8090), Hermes dashboard(9119→9120, basic_auth), Patchmon(8443→3001), Pulse(10000→10001)
 - **Region**: OCI `ap-chuncheon-1` (춘천)
 
 ## Key Variables
@@ -155,7 +159,7 @@ graph TD
 - Hermes `network_mode: host` (`http://ai` Tailscale Aperture 접근 위해). Dashboard는 `HERMES_DASHBOARD_HOST=0.0.0.0` + `PORT=9120`로 bind — 2026-06 hardening으로 non-loopback bind 시 auth provider 필수(`HERMES_DASHBOARD_INSECURE`는 no-op) → basic_auth 설정. `0.0.0.0` wildcard라 Host 검증 통과. tailscale serve `:9119 → http://127.0.0.1:9120` 프록시(HTTPS 종단). 접근: `https://brla.bun-bull.ts.net:9119` (basic_auth form 로그인)
 - Hermes dashboard serve 외부 포트(9119)는 bind 포트(9120)와 **달라야 함** — hermes가 `0.0.0.0:9120`을 잡으면 tailscaled의 Tailscale IP:9120과 충돌 (`address already in use`). 같은 포트(9120/9120)를 쓰려면 hermes를 127.0.0.1로 해야 하나, 그럼 외부 hostname Host가 거부됨(400)
 - Hermes dashboard Host 검증은 bind 주소에 **hardcoded (allowlist config 없음)** — `0.0.0.0`=모든 Host 허용, `127.0.0.1`=loopback Host만. 외부 hostname 접속엔 `0.0.0.0` 강제 (`--allowed-hosts` flag는 PR #37119 미출시, #34390 참조)
-- Hermes dashboard 미인증 `/` → 302 → **500** (Hermes 버그 #58166: basic-auth-only + non-loopback bind 시 auto-SSO redirect가 `/auth/login?provider=basic`으로 빠져 `NotImplementedError`). `/login`으로 직접 접속 우회, 로그인 후 `/` 정상(200). fix #58166 포함 이미지로 갱신 시 해소 예상
+- Hermes dashboard 미인증 `/` → 302 → **500** (Hermes 버그 #58166: basic-auth-only + non-loopback bind 시 auto-SSO redirect가 `/auth/login?provider=basic`으로 빠져 `NotImplementedError`). **hermes role이 `files/patch_hermes_58166.py`로 `_auto_sso_response`에서 basic provider skip 패치 → `/`가 `/login`으로 폴백(200)**. 컨테이너 재생성 시마다 task가 재적용(영속). #58166 머지/릴리스(fix 포함 이미지) 시 패치 파일 + task 제거
 - Hermes gateway(8642)는 Hermes 프로세스가 `127.0.0.1`에 직접 bind (health check용)
 - Hermes role 실행 전 반드시 SOPS 복호화 + `.env` 로드 필요: `export SOPS_AGE_KEY_FILE=keys.txt && source .env`. 누락 시 `lookup('env', ...)`가 빈값 반환 → compose에 secret 누락 → gateway 미기동
 - Hermes config: `_config_version: 26` 필수 (없으면 자동 마이그레이션으로 `key_env` 누락됨). `providers: {}` + `custom_providers` legacy 포맷 사용
@@ -170,6 +174,7 @@ graph TD
 - zsh: ubuntu 기본 셸. code-server 터미널도 로그인 셸(zsh)을 따름
 - sops: `binary` role에서 GitHub release 바이너리 (`/usr/local/bin/sops`) 설치. 최신 유지 시 `--extra-vars sops_force=true`
 - sops binary 형식: `secrets/.env.sops`는 binary store(전체 평문을 단일 `data` ENC 블롭으로 암호화). `.env.local`의 `sops-dec`/`sops-enc`가 `--input-type binary --output-type binary`로 동작하므로 포맷 일치. 암호화 시 `.sops.yaml` path_regex(`^secrets/`) 매칭으로 age 키 자동 적용 (binary store는 self-describing이라 auto-detect도 정상 동작)
+- SOPS .env.sops 값 편집 (추가/수정): 복호화 → 편집 → 재암호화 시 임시 평문 파일을 **반드시 `secrets/` 안**에 두어야 path_regex 매칭 (`/tmp/`면 "no matching creation rules found"). 기존 키는 `export KEY="value"` 형식이라 sed 교체 시 `^KEY=`가 아닌 `KEY=.*` 패턴 사용 (줄 시작이 `export `)
 - code-server 비밀번호: `CODE_SERVER_PASSWORD` (SOPS `.env.sops` 관리). docker-compose template가 `lookup('env', 'CODE_SERVER_PASSWORD')`로 주입, 기본 `changeme` fallback
 - packages: apt 패키지 모음 (age 등). 새 apt 도구는 이 role의 name 리스트에 추가
 - binary: GitHub release 바이너리 모음 (sops 등). 새 바이너리 도구는 이 role에 추가
@@ -177,7 +182,9 @@ graph TD
 - Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
 - Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
 - Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
-- 라우팅: Tailscale Serve 포트 기반 — Homepage(443→3000), code-server(8080), Gatus(8088), Beszel(8090), Hermes dashboard(9119→9120, basic_auth)
+- Patchmon/Pulse: `/data/patchmon/`, `/data/pulse/`에 배포 (docker-compose). Docker named volume(`patchmon_postgres_data`, `patchmon_redis_data`, `pulse_pulse_data`) 사용 → 데이터는 `/data/docker/volumes/`에 저장 (Block Volume). compose `name:` 명시로 컨테이너 재생성/위치 이동 시에도 같은 volume 재사용 (데이터 보존)
+- Patchmon .env: SOPS `PATCHMON_` 접두어 13개 키 관리. `env.j2`가 `lookup('env', 'PATCHMON_*')`로 .env 생성 (최초 1회). pulse는 env_file 없이 compose `environment:`로 직접 설정 (비밀값 없음)
+- 라우팅: Tailscale Serve 포트 기반 — Homepage(443→3000), code-server(8080), Gatus(8088), Beszel(8090), Hermes dashboard(9119→9120, basic_auth), Patchmon(8443→3001), Pulse(10000→10001)
 - Docker `proxy` 네트워크는 컨테이너 간 통신용 (Tailscale Serve는 호스트 `127.0.0.1` 포트로 라우팅)
 - 새 Beszel 계정은 SOPS의 `HOMEPAGE_VAR_BESZEL_USERNAME`/`HOMEPAGE_VAR_BESZEL_PASSWORD`와 일치해야 Homepage 위젯이 동작
 - 라우팅은 Tailscale Serve가 담당. 매 배포 시 `tailscale serve reset` 후 각 포트 재등록 (tailscale role)
@@ -187,7 +194,14 @@ graph TD
 - `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
-- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수): 디바이스 경로 `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in), 서비스 포트 homepage `3000`/code-server `8080`/gatus `8088`/beszel `8090`/hermes dashboard `9120`(내부)/`9119`(serve)/gateway `8642` (compose — host 모드라 ports 무시, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), Docker 이미지명 (compose, ops playbook), 호스트명 `lt`/`brla` (variables.tf, cloud-init, playbook), CIDR `10.210.1.0/24` (variables.tf, cloud-init, playbook), UID `1001`/`10000` (compose, tasks), GID `10001`/gitshare 그룹 (docker role group task, code-server/hermes role user task), `/data/git` setgid `2775` 공유 디렉토리 — POSIX ACL 미사용, gitshare 보조 그룹으로 두 UID rw (docker role file task, code-server/hermes role groups), 호스트 유저 `coder`(UID 1001)/`hermes`(UID 10000) 시스템 등록 + gitshare 보조 그룹 부여 — 컨테이너 UID와 동일 (code-server/hermes role user task), `/data/git/.git` 소유권 `ubuntu:gitshare` 정규화 (hermes role `file` task, `git init --shared=group` 직후 실행 — git init이 root 소유권으로 생성되므로 hermes 컨테이너 UID 10000 + code-server UID 1001 접근 위해 recurse로 chown), Tailscale `41641/UDP` (vcn.tf Security List)
+- 결합점 (다중 파일 참조 값, 변경 시 동기화 필수):
+  - **디바이스/볼륨**: `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in)
+  - **서비스 포트** (compose 127.0.0.1 바인딩, tailscale serve — 내부/외부): homepage `3000`/`443`, code-server `8080`, gatus `8088`, beszel `8090`, hermes dashboard `9120`/`9119`, gateway `8642`(host 모드, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), patchmon `3001`/`8443`, pulse `10001`/`10000`
+  - **Docker 이미지명**: compose 파일, `playbook-ops.yml` docker-update tag
+  - **호스트명/CIDR**: `lt`/`brla` (variables.tf, cloud-init, playbook), `10.210.1.0/24` (variables.tf, cloud-init, playbook)
+  - **UID/GID**: `1001`(code-server)/`10000`(hermes) (compose, tasks), `10001`/gitshare 그룹 (docker role group task, code-server/hermes role user task)
+  - **공유 디렉토리**: `/data/git` setgid `2775` — POSIX ACL 미사용, gitshare 보조 그룹으로 두 UID rw (docker role file task, code-server/hermes role groups); 호스트 유저 `coder`(UID 1001)/`hermes`(UID 10000) 시스템 등록 + gitshare 보조 그룹 부여 — 컨테이너 UID와 동일 (code-server/hermes role user task); `/data/git/.git` 소유권 `ubuntu:gitshare` 정규화 (hermes role `file` task, `git init --shared=group` 직후 — root 소유권을 recurse chown)
+  - **Tailscale**: `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
 
@@ -208,7 +222,7 @@ ansible/                 # Ansible
 ├── ansible.cfg
 ├── inventory/hosts.ini  # tofu output으로 자동 생성
 ├── playbook-lt.yml      # lt: Tailscale exit node
-├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + homepage + gatus + beszel + Hermes
+├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + homepage + gatus + beszel + Hermes + patchmon + pulse
 ├── playbook-hermes-only.yml # brla: Hermes 단독 배포 (/data 마운트 검증 + gitshare fallback + hermes role만 실행)
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
@@ -223,8 +237,11 @@ ansible/                 # Ansible
     ├── homepage/        # BRL-A 전용 Homepage 설정 (Info, Monitoring, AI, Development)
     ├── gatus/           # Heritage endpoint 설정 복사본, 신규 이력 DB
     ├── beszel/          # 신규 Beszel Hub (container_name: beszel-hub)
+    ├── patchmon/        # ghcr.io/patchmon/patchmon-server:latest + postgres + redis (docker-compose, named volume)
+    ├── pulse/           # rcourtman/pulse:latest (docker-compose, named volume)
     └── hermes/          # nousresearch/hermes-agent:latest, gateway run (network_mode: host)
         ├── files/gitignore          # 백업 제외 규칙
+        ├── files/patch_hermes_58166.py  # #58166 우회 패치 (basic provider auto-SSO skip → /login 폴백)
         ├── templates/backup.sh.j2   # Git 백업 스크립트 (cron 실행)
         ├── templates/config.yaml.j2 # Hermes AI provider/model 설정 (Aperture, dola-seed-2.0-lite)
         ├── templates/docker-compose.yml.j2  # Ansible 생성

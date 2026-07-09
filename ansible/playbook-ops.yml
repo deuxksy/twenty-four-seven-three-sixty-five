@@ -105,6 +105,18 @@
         source: pull
         force_source: yes
 
+    - name: Patchmon 이미지 pull (server + postgres + redis)
+      ansible.builtin.shell: docker compose pull
+      args:
+        chdir: /data/patchmon
+      changed_when: false
+
+    - name: Pulse 이미지 pull
+      ansible.builtin.shell: docker compose pull
+      args:
+        chdir: /data/pulse
+      changed_when: false
+
     - name: code-server 컨테이너 재시작 (최신 이미지 적용)
       community.docker.docker_compose_v2:
         project_src: /data/code-server
@@ -139,6 +151,16 @@
         state: restarted
         services:
           - beszel
+
+    - name: Patchmon 컨테이너 재시작 (server + database + redis)
+      community.docker.docker_compose_v2:
+        project_src: /data/patchmon
+        state: restarted
+
+    - name: Pulse 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/pulse
+        state: restarted
 
 - name: Health check
   hosts: all
@@ -175,7 +197,9 @@
         - { name: Homepage, url: "http://localhost:3000" }
         - { name: Gatus, url: "http://localhost:8088" }
         - { name: Beszel, url: "http://localhost:8090" }
+        - { name: Patchmon, url: "http://localhost:3001" }
+        - { name: Pulse, url: "http://localhost:10001" }
         - { name: Hermes gateway, url: "http://localhost:8642/health" }
-        - { name: Hermes dashboard, url: "http://localhost:9119" }
+        - { name: Hermes dashboard, url: "http://localhost:9120/login" }
       loop_control:
         label: "{{ item.name }}"
