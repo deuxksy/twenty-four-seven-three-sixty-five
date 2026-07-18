@@ -204,24 +204,34 @@
   ansible.builtin.command: docker network create proxy
   when: proxy_network.rc != 0
 
-# 공유 Git 디렉토리 (hermes UID:10000 + code-server UID:1001 공유)
-# shared group(gitshare, GID 10001) + setgid(2775)로 두 UID 모두 rw. POSIX ACL 불필요.
-- name: 공유 그룹 생성 (gitshare, GID 10001)
-  group:
-    name: gitshare
-    gid: 10001
+# 공유 Git 디렉토리 (hermes 컨테이너 UID:10000 + code-server 컨테이너 UID:1001 공유)
+# POSIX ACL로 두 UID 모두에게 rwx 부여 (컨테이너가 host UID 그대로 사용, userns remap 없음)
+# default ACL로 새 파일/디렉토리에도 권한 상속 → setgid 불필요
+- name: acl 패키지 설치 (POSIX ACL 지원)
+  apt:
+    name: acl
     state: present
 
-- name: 공유 Git 디렉토리 생성 (/data/git, setgid 2775)
+- name: 공유 Git 디렉토리 생성 (/data/git, root:root 0770)
   file:
     path: /data/git
     state: directory
-    owner: ubuntu
-    group: gitshare
-    mode: "2775"
+    owner: root
+    group: root
+    mode: "0770"
 
-- name: ubuntu 유저를 gitshare 보조 그룹에 추가
-  user:
-    name: ubuntu
-    groups: gitshare
-    append: yes
+- name: /data/git POSIX ACL 설정 (code-server UID 1001 + hermes UID 10000 rwx)
+  acl:
+    path: /data/git
+    entity: "{{ item.entity }}"
+    etype: "{{ item.etype }}"
+    permissions: rwx
+    default: "{{ item.default | default(no) }}"
+    recursive: "{{ item.recursive | default(no) }}"
+  loop:
+    # 현재 파일/디렉토리 권한 (recursive)
+    - { entity: "1001", etype: user, recursive: yes }
+    - { entity: "10000", etype: user, recursive: yes }
+    # default ACL (새로 생성되는 파일/디렉토리에 상속)
+    - { entity: "1001", etype: user, default: yes }
+    - { entity: "10000", etype: user, default: yes }
