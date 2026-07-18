@@ -12,14 +12,29 @@
     creates: /home/ubuntu/.local/bin/mise
   become_user: ubuntu
 
-- name: mise 셸 활성화 (.bashrc, .zshrc)
+# activate보다 PATH export가 선행해야 함 — 그렇지 않으면 activate 실행 시점에
+# mise 바이너리를 PATH에서 찾지 못해 "command not found: mise" (yazi PATH 미인식).
+# activate를 파일 맨 앞(BOF)에 두고, PATH export를 activate 바로 앞에 배치하여 순서 보장.
+- name: mise 셸 활성화 (.bashrc, .zshrc) — 파일 맨 앞에 추가
   lineinfile:
     path: "/home/ubuntu/{{ item.file }}"
     line: 'eval "$(mise activate {{ item.shell }})"'
+    insertbefore: BOF
     create: yes
   loop:
     - { file: '.bashrc', shell: 'bash' }
     - { file: '.zshrc', shell: 'zsh' }
+  become_user: ubuntu
+
+- name: ~/.local/bin PATH 추가 (.bashrc, .zshrc) — activate보다 선행
+  lineinfile:
+    path: "/home/ubuntu/{{ item }}"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    insertbefore: 'mise activate'
+    create: yes
+  loop:
+    - .bashrc
+    - .zshrc
   become_user: ubuntu
 
 # mise install/use/corepack 모두 멱동 — 이미 설치된 경우 no-op.

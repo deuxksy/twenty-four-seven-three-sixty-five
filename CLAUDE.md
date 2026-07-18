@@ -179,7 +179,7 @@ graph TD
 - code-server 비밀번호: `CODE_SERVER_PASSWORD` (SOPS `.env.sops` 관리). docker-compose template가 `lookup('env', 'CODE_SERVER_PASSWORD')`로 주입, 기본 `changeme` fallback
 - packages: apt 패키지 모음 (age, unzip, yazi apt 의존성 file/ffmpeg/7zip/jq/poppler/fd-find/ripgrep/zoxide/xclip/imagemagick) + fd symlink (fdfind→fd). 새 apt 도구는 이 role의 name 리스트에 추가
 - binary: 바이너리/아카이브 모음 (sops, Hack Nerd Font). 새 바이너리/폰트 도구는 이 role에 추가
-- mise: 사용자 범위 (`/home/ubuntu/.local/bin/mise`). Ansible은 non-login shell이라 `mise activate` 미동작 → role 내 모든 명령을 절대 경로로 호출, interactive shell용 활성화는 `.bashrc`/`.zshrc`에 별도 추가
+- mise: 사용자 범위 (`/home/ubuntu/.local/bin/mise`). Ansible은 non-login shell이라 `mise activate` 미동작 → role 내 모든 명령을 절대 경로로 호출. interactive shell용 활성화는 `.bashrc`/`.zshrc`에 추가하되, **`export PATH="$HOME/.local/bin:$PATH"`가 `eval "$(mise activate ...)"`보다 선행해야 함** — 그렇지 않으면 activate 시점에 `mise`를 PATH에서 못 찾아 `command not found: mise` (yazi 등 mise 도구 PATH 미인식). role이 activate를 `insertbefore: BOF`로, PATH export를 `insertbefore: 'mise activate'`로 배치하여 순서 보장
 - Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
 - Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
 - Gatus/Beszel 런타임 데이터는 이전하지 않음. `/data/gatus/data`, `/data/beszel/data`, `/data/beszel/socket`에서 신규 시작
@@ -195,7 +195,7 @@ graph TD
 - `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
-- yazi + CLI 도구 (playbook-cli-tools.yml): 우선순위 apt > mise > binary. apt 충분히 최신인 fd/rg/zoxide/7zip/jq/poppler/ffmpeg/xclip/imagemagick/file은 apt(packages); apt 구버전(fzf 0.44 < yazi 0.53+ 요구)/미지원(yazi)은 `mise use -g`(aqua 백엔드, mise role). apt fzf는 제거 후 mise로 교체. code-server interactive zsh에서 mise activate로 PATH 인식
+- yazi + CLI 도구 (playbook-cli-tools.yml): 우선순위 apt > mise > binary. apt 충분히 최신인 fd/rg/zoxide/7zip/jq/poppler/ffmpeg/xclip/imagemagick/file은 apt(packages); apt 구버전(fzf 0.44 < yazi 0.53+ 요구)/미지원(yazi)은 `mise use -g`(aqua 백엔드, mise role). apt fzf는 제거 후 mise로 교체. code-server interactive zsh에서 yazi/fzf 실행 시 `~/.local/bin` PATH export가 `mise activate`보다 선행해야 mise function 로드 → yazi PATH 인식
 - Docker APT repo: `deb822_repository` 사용 (apt_repository/apt_key는 ansible-core 2.25 제거 + trusted.gpg deprecation). keyring `/etc/apt/keyrings/docker.asc` + signed-by. **apt_repository filename 미지정 시 `download_docker_com_linux_ubuntu.list` 자동 생성** → deb822 전환 시 이 파일과 `docker.list` 모두 제거 (안 하면 Signed-By 충돌). deb822는 cache 자동 갱신 안 함 → register 결과로 `when` 조건
 - Hack Nerd Font: binary role, `/usr/share/fonts/nerd-fonts/` (apt/mise 미지원 → 직접 zip). unarchive zip에 `unzip` 필요 (packages에 포함)
 - fd symlink: Ubuntu `fd-find` 패키지는 `fdfind` 명령 → yazi는 `fd` 기대 → `/usr/local/bin/fd → /usr/bin/fdfind` symlink (packages role)
