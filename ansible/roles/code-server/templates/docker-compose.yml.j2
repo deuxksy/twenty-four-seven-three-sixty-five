@@ -3,7 +3,7 @@ services:
     image: codercom/code-server:latest
     container_name: code-server
     restart: unless-stopped
-    user: "1001:10001"
+    user: "1001:1001"
     command: --auth password /home/coder/git
     ports:
       - "127.0.0.1:8080:8080"

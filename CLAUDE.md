@@ -192,7 +192,7 @@ graph TD
 - Tailscale 인증서 발급(`tailscale cert`)은 유지 — Tailscale Serve가 TLS termination에 사용
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
-- `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
+- `playbook-hermes-only.yml`은 POSIX ACL fallback(acl 패키지 + `/data/git` root:root 0770 + setfacl UID 1001/10000 rwx + default ACL)을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 `/data/git` 공유 권한 보장. `/data/git` 디렉토리 자체는 hermes role이 `git init` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
 - yazi + CLI 도구 (playbook-cli-tools.yml): 우선순위 apt > mise > binary. apt 충분히 최신인 fd/rg/zoxide/7zip/jq/poppler/ffmpeg/xclip/imagemagick/file은 apt(packages); apt 구버전(fzf 0.44 < yazi 0.53+ 요구)/미지원(yazi)은 `mise use -g`(aqua 백엔드, mise role). apt fzf는 제거 후 mise로 교체. code-server interactive zsh에서 yazi/fzf 실행 시 `~/.local/bin` PATH export가 `mise activate`보다 선행해야 mise function 로드 → yazi PATH 인식
@@ -205,8 +205,8 @@ graph TD
   - **서비스 포트** (compose 127.0.0.1 바인딩, tailscale serve — 내부/외부): homepage `3000`/`443`, code-server `8080`, gatus `8088`, beszel `8090`, hermes dashboard `9120`/`9119`, gateway `8642`(host 모드, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), patchmon `3001`/`8443`, pulse `10001`/`10000`
   - **Docker 이미지명**: compose 파일, `playbook-ops.yml` docker-update tag
   - **호스트명/CIDR**: `lt`/`brla` (variables.tf, cloud-init, playbook), `10.210.1.0/24` (variables.tf, cloud-init, playbook)
-  - **UID/GID**: `1001`(code-server)/`10000`(hermes) (compose, tasks), `10001`/gitshare 그룹 (docker role group task, code-server/hermes role user task)
-  - **공유 디렉토리**: `/data/git` setgid `2775` — POSIX ACL 미사용, gitshare 보조 그룹으로 두 UID rw (docker role file task, code-server/hermes role groups); 호스트 유저 `coder`(UID 1001)/`hermes`(UID 10000) 시스템 등록 + gitshare 보조 그룹 부여 — 컨테이너 UID와 동일 (code-server/hermes role user task); `/data/git/.git` 소유권 `ubuntu:gitshare` 정규화 (hermes role `file` task, `git init --shared=group` 직후 — root 소유권을 recurse chown)
+  - **UID/GID**: `1001`(code-server)/`10000`(hermes) (compose user, tasks). 공유는 GID가 아닌 **POSIX ACL(UID 기반)**로 처리 — gitshare 그룹(GID 10001)/setgid 방식은 제거됨
+  - **공유 디렉토리**: `/data/git` root:root `0770` + **POSIX ACL** — setfacl로 UID 1001(code-server)/10000(hermes)에 rwx + default ACL 상속(새 파일/디렉토리 자동 상속) (docker role acl task; `playbook-hermes-only.yml` fallback 동일). 호스트 유저 `hermes`(UID 10000) system 등록 — 컨테이너 UID와 동일, 보조 그룹 불필요 (hermes role user task); code-server는 호스트 ubuntu(UID 1001) 그대로 사용(별도 유저 없음). `git init --shared=group` 제거 — default ACL이 권한 상속하므로 shared 불필요
   - **Tailscale**: `41641/UDP` (vcn.tf Security List)
 
 ## Directory Structure
@@ -229,7 +229,7 @@ ansible/                 # Ansible
 ├── inventory/hosts.ini  # tofu output으로 자동 생성
 ├── playbook-lt.yml      # lt: Tailscale exit node
 ├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + homepage + gatus + beszel + Hermes + patchmon + pulse
-├── playbook-hermes-only.yml # brla: Hermes 단독 배포 (/data 마운트 검증 + gitshare fallback + hermes role만 실행)
+├── playbook-hermes-only.yml # brla: Hermes 단독 배포 (/data 마운트 검증 + POSIX ACL fallback + hermes role만 실행)
 ├── playbook-cli-tools.yml # brla: CLI 도구 (docker/packages/binary/mise, SOPS 불필요)
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/

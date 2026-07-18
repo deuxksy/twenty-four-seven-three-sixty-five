@@ -30,13 +30,8 @@
     chdir: /data/code-server
   become: yes
 
-- name: /data/git 디렉토리 소유권 설정 (ubuntu:gitshare, setgid)
-  file:
-    path: /data/git
-    state: directory
-    owner: ubuntu
-    group: gitshare
-    mode: "2775"
+# /data/git 권한은 docker role의 POSIX ACL이 관리 (UID 1001/10000 rwx + default ACL 상속).
+# 여기서 ubuntu:gitshare setgid로 덮어쓰면 ACL default 상속이 깨지므로 건드리지 않음.
 
 - name: code-server .gitconfig 생성
   copy:

@@ -1,7 +1,7 @@
 # ansible/roles/hermes/tasks/main.yml
 
 # 호스트 UID 10000을 system user로 등록 (컨테이너 UID와 동일 — UID 변경 아님)
-# /data/git 공유 디렉토리 접근을 위해 gitshare(GID 10001) 보조 그룹 부여
+# /data/git 접근은 docker role의 POSIX ACL이 UID 10000에 rwx 부여 (그룹 불필요)
 - name: Hermes 호스트 유저 등록 (UID 10000, system)
   user:
     name: hermes
@@ -9,8 +9,6 @@
     system: true
     shell: /usr/sbin/nologin
     create_home: false
-    groups: gitshare
-    append: true
 
 - name: Hermes 데이터 디렉토리 생성
   file:
@@ -140,20 +138,14 @@
     - { key: "user.email", value: "{{ git_user_email | default('deuxksy@gmail.com') }}" }
     - { key: "safe.directory", value: "/data/hermes/data" }
 
-- name: 공유 Git repo 초기화 (/data/git, --shared=group)
-  command: git init --shared=group /data/git
+- name: 공유 Git repo 초기화 (/data/git)
+  command: git init /data/git
   args:
     creates: /data/git/.git
   become: true
 
-- name: /data/git/.git 소유권 정규화 (ubuntu:gitshare)
-  file:
-    path: /data/git/.git
-    owner: ubuntu
-    group: gitshare
-    recurse: yes
-  become: true
-  changed_when: false
+# /data/git 권한은 docker role POSIX ACL이 관리 (UID 1001/10000 rwx + default ACL 상속).
+# git init으로 생성되는 .git 객체에 default ACL이 자동 상속 → 별도 소유권 정규화 불필요.
 
 - name: GitHub remote URL 확인
   shell: git remote get-url origin 2>/dev/null

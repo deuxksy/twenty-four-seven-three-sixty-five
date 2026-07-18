@@ -19,32 +19,34 @@
         fail_msg: "/data가 마운트되지 않음 — docker role(fstab + mount)을 먼저 실행하거나 Block Volume(/dev/oracleoci/oraclevdb)을 확인하세요"
         success_msg: "/data 마운트 확인: {{ data_mount_source.stdout }}"
 
-    - name: gitshare 그룹 존재 여부 확인
-      ansible.builtin.command: getent group gitshare
-      register: gitshare_group
-      changed_when: false
-      failed_when: false
-
-    - name: gitshare 그룹 생성 fallback (docker role 미실행 시)
-      ansible.builtin.group:
-        name: gitshare
-        gid: 10001
+    - name: acl 패키지 설치 (POSIX ACL 지원 — docker role 미실행 시 자체 보장)
+      ansible.builtin.apt:
+        name: acl
         state: present
-      when: gitshare_group.rc != 0
 
-    - name: ubuntu 유저를 gitshare 보조 그룹에 추가 (code-server 컨테이너 UID 1001 호환)
-      ansible.builtin.user:
-        name: ubuntu
-        groups: gitshare
-        append: yes
-
-    - name: 공유 Git 디렉토리 생성 fallback (/data/git, setgid 2775 - docker role 미실행 시)
+    - name: 공유 Git 디렉토리 생성 fallback (/data/git, root:root 0770 — docker role 미실행 시)
       ansible.builtin.file:
         path: /data/git
         state: directory
-        owner: ubuntu
-        group: gitshare
-        mode: "2775"
+        owner: root
+        group: root
+        mode: "0770"
+
+    - name: /data/git POSIX ACL 설정 fallback (code-server UID 1001 + hermes UID 10000 rwx)
+      ansible.builtin.acl:
+        path: /data/git
+        entity: "{{ item.entity }}"
+        etype: "{{ item.etype }}"
+        permissions: rwx
+        default: "{{ item.default | default(no) }}"
+        recursive: "{{ item.recursive | default(no) }}"
+      loop:
+        # 현재 파일/디렉토리 권한 (recursive)
+        - { entity: "1001", etype: user, recursive: yes }
+        - { entity: "10000", etype: user, recursive: yes }
+        # default ACL (새로 생성되는 파일/디렉토리에 상속)
+        - { entity: "1001", etype: user, default: yes }
+        - { entity: "10000", etype: user, default: yes }
 
   roles:
     - role: hermes
