@@ -1,16 +1,7 @@
 # ansible/roles/code-server/tasks/main.yml
 
-# 호스트 UID 1001을 system user로 등록 (컨테이너 UID와 동일 — UID 변경 아님)
-# /data/git 공유 디렉토리 접근을 위해 gitshare(GID 10001) 보조 그룹 부여
-- name: code-server 호스트 유저 등록 (UID 1001, system)
-  user:
-    name: coder
-    uid: 1001
-    system: yes
-    shell: /usr/sbin/nologin
-    create_home: no
-    groups: gitshare
-    append: yes
+# ubuntu 유저(UID 1001)를 그대로 사용하므로 별도 유저 생성 불필요
+# 컨테이너 내부 UID 1001은 호스트 ubuntu와 매칭됨
 
 - name: code-server 디렉토리 생성
   file:
@@ -23,8 +14,8 @@
   file:
     path: /data/code-server/data
     state: directory
-    owner: "1001"
-    group: "1001"
+    owner: ubuntu
+    group: ubuntu
 
 - name: code-server Docker Compose 파일 생성
   template:
@@ -38,3 +29,22 @@
   args:
     chdir: /data/code-server
   become: yes
+
+- name: /data/git 디렉토리 소유권 설정 (ubuntu:gitshare, setgid)
+  file:
+    path: /data/git
+    state: directory
+    owner: ubuntu
+    group: gitshare
+    mode: "2775"
+
+- name: code-server .gitconfig 생성
+  copy:
+    dest: /data/code-server/data/.gitconfig
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+    content: |
+      [user]
+        name = Crong
+        email = deuxksy@gmail.com

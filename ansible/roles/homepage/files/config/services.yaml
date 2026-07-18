@@ -63,6 +63,20 @@
           version: 2
           url: http://gatus:8088
 
+    - PatchMon:
+        label: "Patch Monitor"
+        icon: patchmon.png
+        href: https://brla.bun-bull.ts.net:8443
+        server: my-docker
+        container: patchmon-server-1
+
+    - Pulse:
+        label: "Git Monitor"
+        icon: pulse.png
+        href: https://brla.bun-bull.ts.net:10000
+        server: my-docker
+        container: pulse-pulse-1
+
 - Development:
     - Hermes:
         label: "AI Gateway"
@@ -70,7 +84,7 @@
         server: my-docker
         container: hermes
 
-    - code-server:
+    - code:
         label: "VS Code Server"
         icon: code.png
         href: https://brla.bun-bull.ts.net:8080

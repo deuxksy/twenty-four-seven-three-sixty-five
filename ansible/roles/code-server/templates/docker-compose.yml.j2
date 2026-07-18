@@ -3,13 +3,14 @@ services:
     image: codercom/code-server:latest
     container_name: code-server
     restart: unless-stopped
-    user: "1001:1001"
+    user: "1001:10001"
     command: --auth password /home/coder/git
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
       - /data/code-server/data:/home/coder
       - /data/git:/home/coder/git
+      - /home/ubuntu/.ssh:/home/coder/.ssh:ro
     environment:
       - PASSWORD={{ lookup('env', 'CODE_SERVER_PASSWORD') | default('changeme') }}
       - TZ=Asia/Seoul
