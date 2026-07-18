@@ -220,18 +220,10 @@
     group: root
     mode: "0770"
 
-- name: /data/git POSIX ACL 설정 (code-server UID 1001 + hermes UID 10000 rwx)
-  acl:
-    path: /data/git
-    entity: "{{ item.entity }}"
-    etype: "{{ item.etype }}"
-    permissions: rwx
-    default: "{{ item.default | default(no) }}"
-    recursive: "{{ item.recursive | default(no) }}"
-  loop:
-    # 현재 파일/디렉토리 권한 (recursive)
-    - { entity: "1001", etype: user, recursive: yes }
-    - { entity: "10000", etype: user, recursive: yes }
-    # default ACL (새로 생성되는 파일/디렉토리에 상속)
-    - { entity: "1001", etype: user, default: yes }
-    - { entity: "10000", etype: user, default: yes }
+# ansible.posix.acl 모듈은 recursive 시 state=query 충돌 → setfacl 직접 사용.
+# setfacl -m은 멱등(동일 ACL이면 no-op) → changed_when false.
+# -R: 재귀(기존 파일), -m u:UID:rwx: 일반 ACL, -m d:u:UID:rwx: default ACL(새 파일 상속)
+- name: /data/git POSIX ACL 설정 (UID 1001/10000 rwx + default 상속, setfacl)
+  ansible.builtin.command: >
+    setfacl -R -m u:1001:rwx,u:10000:rwx -m d:u:1001:rwx,d:u:10000:rwx /data/git
+  changed_when: false

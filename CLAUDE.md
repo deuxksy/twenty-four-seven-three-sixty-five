@@ -193,6 +193,7 @@ graph TD
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - `playbook-hermes-only.yml`은 POSIX ACL fallback(acl 패키지 + `/data/git` root:root 0770 + setfacl UID 1001/10000 rwx + default ACL)을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 `/data/git` 공유 권한 보장. `/data/git` 디렉토리 자체는 hermes role이 `git init` 시 자동 생성
+- POSIX ACL은 `ansible.posix.acl` 모듈이 아닌 `setfacl` command로 적용 (docker role acl task; `playbook-hermes-only.yml` fallback 동일) — 모듈 두 가지 결함: (1) `default(no)`의 `no`가 Jinja2 undefined 변수 (→ `default(false)` 우회 가능), (2) `recursive: yes` 시 내부 `state=query` 충돌 (`'recursive' MUST NOT be set when 'state=query'`). `setfacl -R -m u:UID:rwx -m d:u:UID:rwx` 한 명령으로 recursive(기존 파일)+default ACL(신규 파일 상속) 동시 처리. `-m`은 멱등(동일 ACL이면 no-op) → `changed_when: false`
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
 - yazi + CLI 도구 (playbook-cli-tools.yml): 우선순위 apt > mise > binary. apt 충분히 최신인 fd/rg/zoxide/7zip/jq/poppler/ffmpeg/xclip/imagemagick/file은 apt(packages); apt 구버전(fzf 0.44 < yazi 0.53+ 요구)/미지원(yazi)은 `mise use -g`(aqua 백엔드, mise role). apt fzf는 제거 후 mise로 교체. code-server interactive zsh에서 yazi/fzf 실행 시 `~/.local/bin` PATH export가 `mise activate`보다 선행해야 mise function 로드 → yazi PATH 인식
