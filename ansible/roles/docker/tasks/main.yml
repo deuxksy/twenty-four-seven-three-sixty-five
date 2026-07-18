@@ -1,16 +1,63 @@
 # ansible/roles/docker/tasks/main.yml
 
-# Docker 공식 GPG 키 추가
-- name: Docker GPG 키 추가
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+# Docker GPG 키 — keyring 방식 (signed-by)으로 /etc/apt/keyrings/에 저장
+# apt_key 모듈(/etc/apt/trusted.gpg)은 apt-key(8) deprecation 경고 유발 → keyring + signed-by 사용
+- name: Docker keyring 디렉토리 생성
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
 
-- name: Docker APT 리포지토리 추가
-  apt_repository:
-    repo: "deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+- name: Docker GPG 키 다운로드 (keyring)
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+# 기존 one-line 포맷 제거 (apt_repository → deb822 마이그레이션)
+# apt_repository는 filename 미지정 시 download_docker_com_linux_ubuntu.list 자동 생성
+- name: Legacy Docker apt sources 제거 (one-line → deb822)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/docker.list
+    - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+  register: docker_legacy_removed
+
+# deb822 포맷 (apt_repository 모듈은 ansible-core 2.25에서 제거 예정 → deb822_repository 사용)
+- name: Docker APT 리포지토리 추가 (deb822, signed-by keyring)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/ubuntu
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    architectures: arm64
+    signed_by: /etc/apt/keyrings/docker.asc
     state: present
+  register: docker_repo
+
+# deb822_repository는 cache를 자동 갱신하지 않음 → repo/legacy 변경 시 수동 갱신
+- name: apt cache 갱신 (Docker repo 변경 시)
+  apt:
     update_cache: yes
+  when: docker_repo.changed or docker_legacy_removed.changed
+
+# Legacy 정리 — 기존 apt_key가 /etc/apt/trusted.gpg에 저장한 Docker 키 제거 (apt-key deprecation 경고 제거)
+- name: Legacy trusted.gpg에서 Docker 키 제거
+  ansible.builtin.shell: |
+    if apt-key export 0EBFCD88 2>/dev/null | grep -q 'BEGIN PGP'; then
+      apt-key del 0EBFCD88
+    else
+      echo "ALREADY_REMOVED"
+    fi
+  register: legacy_key_del
+  changed_when: "'OK' in legacy_key_del.stdout"
 
 # Docker 설치 (docker-ce + containerd.io — containerd image store default on Docker 29+)
 - name: Docker Engine + Compose 플러그인 설치

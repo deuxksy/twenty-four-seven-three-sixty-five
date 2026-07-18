@@ -39,3 +39,27 @@
   command: /home/ubuntu/.local/bin/mise exec nodejs@24 -- corepack enable pnpm
   changed_when: false
   become_user: ubuntu
+
+# yazi + fzf + resvg: apt 미지공/구버전 CLI 도구 (mise aqua 백엔드, 사용자 범위)
+# 우선순위: apt > mise > pnpm/uv > binary. apt로 안 되는 도구는 mise로 관리.
+# code-server 터미널(interactive zsh)에서 mise activate로 PATH 인식.
+
+# fzf: noble apt는 0.44 (yazi 0.53+ 요구) → apt 제거 후 mise 최신으로 교체
+- name: apt fzf 제거 (구버전 0.44 → mise 최신으로 교체)
+  apt:
+    name: fzf
+    state: absent
+
+- name: yazi 설치 (mise — 터미널 파일 매니저)
+  command: /home/ubuntu/.local/bin/mise use -g yazi@latest
+  changed_when: false
+  become_user: ubuntu
+
+- name: fzf 설치 (mise, >= 0.53)
+  command: /home/ubuntu/.local/bin/mise use -g fzf@latest
+  changed_when: false
+  become_user: ubuntu
+
+# resvg: mise aqua 백엔드가 linux/arm64 미지원 (darwin/windows/amd64만 — aqua:linebender/resvg).
+# cargo 백엔드는 rust toolchain(mise rust) 추가 + 빌드 시간 → SVG preview(옵션)만 제한, yazi 메인 무관으로 생략.
+# 필요 시 mise install rust@latest + cargo:resvg 백엔드로 확장.

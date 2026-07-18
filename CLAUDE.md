@@ -34,6 +34,7 @@ tofu output -raw ansible_inventory_ini > ../ansible/inventory/hosts.ini
 cd ../ansible
 ansible-playbook playbook-lt.yml       # AMD Micro(lt): exit node 설정
 ansible-playbook playbook-brla.yml     # ARM A1(brla): Docker + 서비스 배포
+ansible-playbook playbook-cli-tools.yml # brla: CLI 도구 (yazi + 의존성, SOPS 불필요)
 
 # Ansible 운영 관리 (inventory 생성 후)
 ansible-playbook playbook-ops.yml --tags reboot          # lt/brla 병렬 재부팅
@@ -136,7 +137,7 @@ graph TD
 - `setup.sh`에서 `tofu init`/`tofu plan`/`tofu apply` 자동 실행 (전체 프로비저닝)
 - `.env.local`은 SOPS 유틸리티 (함수 + alias: `dec`, `enc`, `load`). `source .env.local`로 로드. `setup.sh`도 내부적으로 호출
 - 인프라 변경 후 스펙과 실제 코드 동기화 필수
-- Ansible role 분리 원칙: apt → `packages`, GitHub release 바이너리 → `binary`, 설정/서비스 → 개별 role. 새 도구는 설치 방식에 따라 배치
+- Ansible role 분리 원칙: apt → `packages`, mise 지원 도구 → `mise`, GitHub release 바이너리/아카이브 → `binary`, 설정/서비스 → 개별 role. 우선순위 apt > mise > pnpm/uv > binary. 새 도구는 설치 방식에 따라 배치
 
 ## Gotchas
 
@@ -176,8 +177,8 @@ graph TD
 - sops binary 형식: `secrets/.env.sops`는 binary store(전체 평문을 단일 `data` ENC 블롭으로 암호화). `.env.local`의 `sops-dec`/`sops-enc`가 `--input-type binary --output-type binary`로 동작하므로 포맷 일치. 암호화 시 `.sops.yaml` path_regex(`^secrets/`) 매칭으로 age 키 자동 적용 (binary store는 self-describing이라 auto-detect도 정상 동작)
 - SOPS .env.sops 값 편집 (추가/수정): 복호화 → 편집 → 재암호화 시 임시 평문 파일을 **반드시 `secrets/` 안**에 두어야 path_regex 매칭 (`/tmp/`면 "no matching creation rules found"). 기존 키는 `export KEY="value"` 형식이라 sed 교체 시 `^KEY=`가 아닌 `KEY=.*` 패턴 사용 (줄 시작이 `export `)
 - code-server 비밀번호: `CODE_SERVER_PASSWORD` (SOPS `.env.sops` 관리). docker-compose template가 `lookup('env', 'CODE_SERVER_PASSWORD')`로 주입, 기본 `changeme` fallback
-- packages: apt 패키지 모음 (age 등). 새 apt 도구는 이 role의 name 리스트에 추가
-- binary: GitHub release 바이너리 모음 (sops 등). 새 바이너리 도구는 이 role에 추가
+- packages: apt 패키지 모음 (age, unzip, yazi apt 의존성 file/ffmpeg/7zip/jq/poppler/fd-find/ripgrep/zoxide/xclip/imagemagick) + fd symlink (fdfind→fd). 새 apt 도구는 이 role의 name 리스트에 추가
+- binary: 바이너리/아카이브 모음 (sops, Hack Nerd Font). 새 바이너리/폰트 도구는 이 role에 추가
 - mise: 사용자 범위 (`/home/ubuntu/.local/bin/mise`). Ansible은 non-login shell이라 `mise activate` 미동작 → role 내 모든 명령을 절대 경로로 호출, interactive shell용 활성화는 `.bashrc`/`.zshrc`에 별도 추가
 - Claude Code: native installer (`~/.local/bin/claude`, Node 불필요). 인증은 대화형 OAuth → ansible 범위 밖, code-server 터미널에서 `claude` 실행 후 사용자 직접 인증
 - Homepage 설정은 BRL-A 전용으로 재구성됨 (Hermes, code-server 위젯). Gatus endpoint 설정은 heritage 참조
@@ -194,6 +195,11 @@ graph TD
 - `playbook-hermes-only.yml`은 gitshare 그룹(GID 10001)과 `/data/git` 디렉토리 자동 생성 fallback을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 gitshare 그룹이 없으면 pre_tasks에서 생성. `/data/git` 디렉토리 자체는 hermes role이 `git init --shared=group` 시 자동 생성
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
 - `playbook-brla.yml` role은 tag 미부여 → `--tags <role>` 선택 실행 불가 (조용히 no-op). Hermes 단독은 `playbook-hermes-only.yml` 사용
+- yazi + CLI 도구 (playbook-cli-tools.yml): 우선순위 apt > mise > binary. apt 충분히 최신인 fd/rg/zoxide/7zip/jq/poppler/ffmpeg/xclip/imagemagick/file은 apt(packages); apt 구버전(fzf 0.44 < yazi 0.53+ 요구)/미지원(yazi)은 `mise use -g`(aqua 백엔드, mise role). apt fzf는 제거 후 mise로 교체. code-server interactive zsh에서 mise activate로 PATH 인식
+- Docker APT repo: `deb822_repository` 사용 (apt_repository/apt_key는 ansible-core 2.25 제거 + trusted.gpg deprecation). keyring `/etc/apt/keyrings/docker.asc` + signed-by. **apt_repository filename 미지정 시 `download_docker_com_linux_ubuntu.list` 자동 생성** → deb822 전환 시 이 파일과 `docker.list` 모두 제거 (안 하면 Signed-By 충돌). deb822는 cache 자동 갱신 안 함 → register 결과로 `when` 조건
+- Hack Nerd Font: binary role, `/usr/share/fonts/nerd-fonts/` (apt/mise 미지원 → 직접 zip). unarchive zip에 `unzip` 필요 (packages에 포함)
+- fd symlink: Ubuntu `fd-find` 패키지는 `fdfind` 명령 → yazi는 `fd` 기대 → `/usr/local/bin/fd → /usr/bin/fdfind` symlink (packages role)
+- resvg: mise aqua 백엔드가 linux/arm64 미지원 (darwin/windows/amd64만). cargo 백엔드는 rust toolchain 추가 필요 → SVG preview(옵션)라 생략
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수):
   - **디바이스/볼륨**: `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in)
   - **서비스 포트** (compose 127.0.0.1 바인딩, tailscale serve — 내부/외부): homepage `3000`/`443`, code-server `8080`, gatus `8088`, beszel `8090`, hermes dashboard `9120`/`9119`, gateway `8642`(host 모드, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), patchmon `3001`/`8443`, pulse `10001`/`10000`
@@ -224,14 +230,15 @@ ansible/                 # Ansible
 ├── playbook-lt.yml      # lt: Tailscale exit node
 ├── playbook-brla.yml    # brla: Docker + packages + binary + zsh + mise + claude-code + code-server + homepage + gatus + beszel + Hermes + patchmon + pulse
 ├── playbook-hermes-only.yml # brla: Hermes 단독 배포 (/data 마운트 검증 + gitshare fallback + hermes role만 실행)
+├── playbook-cli-tools.yml # brla: CLI 도구 (docker/packages/binary/mise, SOPS 불필요)
 ├── playbook-ops.yml     # 운영 관리 (reboot, update, health check)
 └── roles/
     ├── tailscale/       # exit node, IP forwarding, HTTPS cert 발급, Serve 포트 기반 라우팅
     ├── docker/          # Docker Engine + Compose, /data 마운트, data-root=/data/docker + containerd root=/data/containerd, systemd drop-in RequiresMountsFor=/data
-    ├── packages/        # apt 패키지 모음 (age 등)
-    ├── binary/          # GitHub release 바이너리 모음 (sops 등)
+    ├── packages/        # apt 패키지 모음 (age, unzip, yazi apt 의존성) + fd symlink (fdfind→fd)
+    ├── binary/          # 바이너리/아카이브 모음 (sops, Hack Nerd Font)
     ├── zsh/             # zsh + oh-my-zsh + ubuntu 기본 셸 전환
-    ├── mise/            # mise (공식 installer) + Node.js LTS 24 + pnpm (corepack)
+    ├── mise/            # mise + Node.js LTS 24 + pnpm + yazi/fzf (apt 구버전/미지원 도구, aqua 백엔드)
     ├── claude-code/     # Claude Code CLI (native installer, Node 불필요)
     ├── code-server/     # codercom/code-server:latest (user 1001:1001)
     ├── homepage/        # BRL-A 전용 Homepage 설정 (Info, Monitoring, AI, Development)

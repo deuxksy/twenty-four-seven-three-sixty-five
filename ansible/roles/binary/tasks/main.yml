@@ -19,3 +19,31 @@
     dest: /usr/local/bin/sops
     mode: "0755"
     force: "{{ sops_force | default(false) }}"
+
+# Hack Nerd Font: 터미널 글리프/아이콘 폰트 (apt/mise 미지원 → GitHub release zip)
+- name: Nerd Fonts 시스템 디렉토리 생성
+  ansible.builtin.file:
+    path: /usr/share/fonts/nerd-fonts
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hack Nerd Font 설치 여부 확인
+  ansible.builtin.find:
+    paths: /usr/share/fonts/nerd-fonts
+    patterns: "Hack*.ttf"
+  register: hack_nerd_fonts
+  changed_when: false
+
+- name: Hack Nerd Font 다운로드 및 해제
+  ansible.builtin.unarchive:
+    src: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip"
+    dest: /usr/share/fonts/nerd-fonts
+    remote_src: yes
+  when: hack_nerd_fonts.matched == 0
+
+- name: 폰트 캐시 갱신 (fc-cache)
+  ansible.builtin.command: fc-cache -f /usr/share/fonts/nerd-fonts
+  when: hack_nerd_fonts.matched == 0
+  changed_when: false

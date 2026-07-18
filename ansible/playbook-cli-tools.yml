@@ -1,0 +1,12 @@
+---
+# ansible/playbook-cli-tools.yml
+# brla CLI 개발 도구 설치/동기화 (yazi + 의존성). SOPS 불필요 — code-server/hermes 등 SOPS role 회피.
+# 우선순위: apt(packages) > mise(yazi/fzf) > binary(sops/Hack Nerd Font).
+# 적용: cd ansible && ansible-playbook playbook-cli-tools.yml
+- hosts: brla
+  become: yes
+  roles:
+    - docker
+    - packages
+    - binary
+    - mise

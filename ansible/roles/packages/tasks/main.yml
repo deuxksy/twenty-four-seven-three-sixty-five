@@ -7,4 +7,24 @@
   apt:
     name:
       - age
+      - unzip            # zip 아카이브 해제 (Nerd Font 등 — ansible unarchive 모듈이 zip에 필요)
+      # yazi 의존성 (file 필수, 나머지 옵션 preview/검색/클립보드)
+      - file            # 파일 타입 감지 (yazi 필수)
+      - ffmpeg          # 비디오 썸네일
+      - 7zip            # 아카이브 추출/프리뷰 (Ubuntu 24.04 7zip 패키지)
+      - jq              # JSON 프리뷰
+      - poppler-utils   # PDF 프리뷰
+      - fd-find         # 파일 검색 (fd 명령)
+      - ripgrep         # 파일 내용 검색 (rg)
+      - zoxide          # 디렉토리 히스토리 (fzf 필요)
+      - xclip           # 클립보드 (X11)
+      - imagemagick     # 이미지 프리뷰 (apt 6.x — Font/HEIC/JXL preview 제한, 7.1.1+ 아님)
     state: present
+
+# Ubuntu는 fd-find 패키지가 fdfind 명령으로 설치 → yazi는 fd 기대 → symlink
+- name: fd symlink (fdfind → fd, yazi 호환)
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: /usr/local/bin/fd
+    state: link
+    force: no
