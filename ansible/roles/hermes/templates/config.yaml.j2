@@ -1,16 +1,16 @@
 # Hermes Agent config - Ansible 자동 생성
 _config_version: 26
 model:
-  default: dola-seed-2.0-lite
+  default: google/gemma-4-26b-a4b-qat
   provider: custom:aperture
 
 providers: {}
 
 custom_providers:
 - name: aperture
-  base_url: http://ai
+  base_url: http://ai/v1
   key_env: ANTHROPIC_API_KEY
-  api_mode: anthropic_messages
+  api_mode: chat_completions
 
 timezone: Asia/Seoul
 
