@@ -6,6 +6,21 @@ OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 
 Web Browser → GitHub Codespaces → OpenTofu/Ansible 배포 → code-server (Tailscale HTTPS)
 ```
 
+## 📚 문서 디렉토리 (Diátaxis Index)
+
+### 🚀 Tutorials (입문)
+- [Quick Start](#quick-start) - SOPS 시크릿 복호화부터 전체 자동 배포까지 초심자 가이드
+
+### 🛠️ How-To Guides (가이드)
+- [Ansible 플레이북 실행](#4-ansible-설정-적용) - 서비스 배포, 재부팅 및 헬스 체크 절차
+
+### 📋 Reference (참고자료)
+- [프로젝트 구조](#구조) - Repository 디렉토리 및 파일 역할 정의
+- [Monitoring Dashboard](#monitoring-dashboard) - BRL-A 대시보드 및 Monitoring 스택 사양
+
+### 💡 Explanation (설명)
+- [OCI Free-Tier 아키텍처](CLAUDE.md#architecture) - VCN 및 인스턴스 설계 개념과 가용성 구조
+
 ## Quick Start
 
 ```bash
