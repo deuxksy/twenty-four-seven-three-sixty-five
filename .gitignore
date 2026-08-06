@@ -8,6 +8,7 @@ CHANGELOG.md
 .env
 keys.txt
 secrets/oci_api_key.pem
+secrets/*.bak
 terraform.tfvars
 # Claude Code 관련 디렉토리
 .omc/
@@ -16,3 +17,6 @@ terraform.tfvars
 .serena/
 ansible/inventory/hosts.ini
 .claude/settings.local.json
+
+# understand-anything (지식 그래프 도구)
+.understand-anything/

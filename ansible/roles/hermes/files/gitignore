@@ -18,6 +18,12 @@ kanban.db.init.lock
 *.db-shm
 *.db-wal
 
+# Raw SQL dump (gzip 압축본 .sql.gz만 추적)
+sql/*.sql
+
+# Backup script 자신 (배포 대상, 백업 제외)
+backup.sh
+
 # Logs
 logs/
 

@@ -1,5 +1,15 @@
 # ansible/roles/hermes/tasks/main.yml
 
+# 호스트 UID 10000을 system user로 등록 (컨테이너 UID와 동일 — UID 변경 아님)
+# /data/git 접근은 docker role의 POSIX ACL이 UID 10000에 rwx 부여 (그룹 불필요)
+- name: Hermes 호스트 유저 등록 (UID 10000, system)
+  user:
+    name: hermes
+    uid: 10000
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
 - name: Hermes 데이터 디렉토리 생성
   file:
     path: /data/hermes
@@ -15,7 +25,49 @@
     group: "10000"
     mode: "0755"
 
-- name: Hermes Docker Compose 파일 생성
+- name: Ubuntu 유저 SSH 디렉토리 존재 확인
+  stat:
+    path: /home/ubuntu/.ssh
+  register: ubuntu_ssh_dir
+
+- name: Ubuntu 유저 SSH 디렉토리 생성 (없는 경우)
+  file:
+    path: /home/ubuntu/.ssh
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0700"
+  when: not ubuntu_ssh_dir.stat.exists
+
+- name: SSH config 배포 (호스트)
+  template:
+    src: ssh_config.j2
+    dest: /home/ubuntu/.ssh/config
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Hermes SSH 디렉토리 생성 (컨테이너용)
+  file:
+    path: /data/hermes/ssh
+    state: directory
+    owner: "10000"
+    group: "10000"
+    mode: "0700"
+
+- name: Hermes SSH 키 복사 (컨테이너용)
+  copy:
+    src: "{{ item }}"
+    dest: /data/hermes/ssh/{{ item | basename }}
+    owner: "10000"
+    group: "10000"
+    mode: "0600"
+  loop:
+    - /home/ubuntu/.ssh/id_ed25519
+    - /home/ubuntu/.ssh/id_ed25519.pub
+  ignore_errors: true
+
+- name: Docker Compose 파일 생성
   template:
     src: docker-compose.yml.j2
     dest: /data/hermes/docker-compose.yml
@@ -24,20 +76,20 @@
 
 - name: Hermes 이미지 pull
   shell: docker pull nousresearch/hermes-agent:latest
-  become: yes
+  become: true
 
 - name: Hermes .env 존재 확인
   stat:
-    path: /data/hermes/data/.env
+    path: /data/hermes/.env
   register: hermes_env
 
 - name: Hermes .env 생성 (최초 1회)
   template:
     src: env.j2
-    dest: /data/hermes/data/.env
-    owner: "10000"
-    group: "10000"
-    mode: "0644"
+    dest: /data/hermes/.env
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
   when: not hermes_env.stat.exists
 
 - name: Hermes config.yaml 생성
@@ -48,38 +100,34 @@
     group: "10000"
     mode: "0644"
 
-- name: Hermes 컨테이너 시작
-  shell: docker compose up -d
-  args:
-    chdir: /data/hermes
-  become: yes
+# --- Hermes SSH 폴더 (UID 10000, data 밖 — secret 분리)
 
-# --- 컨테이너 내부 도구 설치 (uv tool) ---
-
-- name: shell-gpt 설치 (uv tool)
-  shell: >
-    docker exec hermes bash -lc "uv tool install shell-gpt &&
-    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
-  become: true
-  register: sgpt_install
-  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
-
-- name: shell-gpt 설정 파일 배포
-  template:
-    src: sgptrc.j2
-    dest: /data/hermes/data/home/.config/shell_gpt/.sgptrc
+- name: Hermes SSH 폴더 생성 (/data/hermes/ssh)
+  file:
+    path: /data/hermes/ssh
+    state: directory
     owner: "10000"
     group: "10000"
-    mode: "0644"
+    mode: "0700"
 
-# --- .git 권한 수정 (hermes UID:10000) ---
+- name: 호스트 SSH key를 Hermes SSH 폴더로 복사
+  shell: cp -a /home/ubuntu/.ssh/. /data/hermes/ssh/ && chown -R 10000:10000 /data/hermes/ssh && chmod 700 /data/hermes/ssh
+  args:
+    creates: /data/hermes/ssh/id_ed25519
 
-- name: .git 디렉토리 소유권 변경 (hermes)
-  shell: chown -R 10000:10000 /data/hermes/data/.git
+# --- Git 백업 & 복원 (컨테이너 시작 전 데이터 준비)
+
+- name: .git 디렉토리 소유권 변경 - 복원 전 (hermes)
+  file:
+    path: /data/hermes/data/.git
+    owner: "10000"
+    group: "10000"
+    recurse: yes
   become: true
+  changed_when: false
 
-# --- Git 백업 & 복원 설정 ---
-
+# 호스트 전용 git 설정 (root 계정 글로벌) — 컨테이너 내부 git과 별개
+# 컨테이너 UID 10000은 별도 HOME(/opt/data/home)에서 동작하므로 이 설정에 영향받지 않음
 - name: Git 글로벌 설정 (root)
   git_config:
     name: "{{ item.key }}"
@@ -89,6 +137,15 @@
     - { key: "user.name", value: "{{ git_user_name | default('Crong') }}" }
     - { key: "user.email", value: "{{ git_user_email | default('deuxksy@gmail.com') }}" }
     - { key: "safe.directory", value: "/data/hermes/data" }
+
+- name: 공유 Git repo 초기화 (/data/git)
+  command: git init /data/git
+  args:
+    creates: /data/git/.git
+  become: true
+
+# /data/git 권한은 docker role POSIX ACL이 관리 (UID 1001/10000 rwx + default ACL 상속).
+# git init으로 생성되는 .git 객체에 default ACL이 자동 상속 → 별도 소유권 정규화 불필요.
 
 - name: GitHub remote URL 확인
   shell: git remote get-url origin 2>/dev/null
@@ -106,7 +163,7 @@
         state: directory
         mode: "0700"
 
-    - name: "ai-brla repo clone (token auth)"
+    - name: "ai-brla repo clone (transient token)"
       git:
         repo: "https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git"
         dest: /tmp/hermes-restore
@@ -123,6 +180,23 @@
         cp -a /tmp/hermes-restore/.git /data/hermes/data/.git 2>/dev/null || true
       become: true
 
+    - name: "복원 repo remote를 clean URL로 정리 (token 제거)"
+      shell: >
+        git -C /data/hermes/data remote set-url origin https://github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
+      become: true
+
+    - name: "SQL dump 압축 해제 + SQLite import"
+      shell: |
+        cd /data/hermes/data
+        if ls sql/*.sql.gz 1>/dev/null 2>&1; then
+          gunzip -kf sql/*.sql.gz
+          for sql in sql/*.sql; do
+            db=$(basename "$sql" .sql)
+            python3 -c "import sqlite3; c=sqlite3.connect('$db'); c.executescript(open('$sql').read()); c.close()"
+          done
+        fi
+      become: true
+
     - name: "복원 디렉토리 정리"
       file:
         path: /tmp/hermes-restore
@@ -137,7 +211,7 @@
 
     - name: "복원 완료 로그"
       debug:
-        msg: "✅ ai-brla repo에서 Hermes 데이터 복원 완료"
+        msg: "✅ ai-brla repo에서 Hermes 데이터 복원 + SQL import 완료"
   when:
     - hermes_git_remote.rc != 0
     - lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
@@ -150,38 +224,102 @@
     group: "10000"
     mode: "0644"
 
-- name: GitHub remote 등록 (복원 후 또는 최초)
+- name: GitHub remote 등록 (clean URL — token 없음)
   shell: >
     git remote get-url origin 2>/dev/null ||
-    git remote add origin https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
+    git remote add origin https://github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
-- name: .git 디렉토리 소유권 변경 (hermes)
-  shell: chown -R 10000:10000 /data/hermes/data/.git
+- name: .git 디렉토리 소유권 변경 - push 전 (hermes)
+  file:
+    path: /data/hermes/data/.git
+    owner: "10000"
+    group: "10000"
+    recurse: yes
   become: true
+  changed_when: false
 
-- name: 초기 커밋 + push (최초 1회)
+- name: 초기 커밋 + push (최초 1회, transient token)
   shell: >
     git add -A &&
-    git diff --cached --quiet || (git commit -m "init: Hermes backup" --author="{{ git_user_name | default('Crong') }}" <{{ git_user_email | default('deuxksy@gmail.com') }}> && git push -u origin main)
+    git diff --cached --quiet || (git -c user.name="{{ git_user_name | default('Crong') }}" -c user.email="{{ git_user_email | default('deuxksy@gmail.com') }}" commit -m "init: Hermes backup" &&
+    git push "https://x-access-token:{{ lookup('env', 'GITHUB_HERMES_TOKEN') }}@github.com/{{ hermes_backup_repo | default('deuxksy/ai-brla') }}.git" HEAD:main)
   args:
     chdir: /data/hermes/data
   when: lookup('env', 'GITHUB_HERMES_TOKEN') | default('') | length > 0
 
-- name: Hermes backup 스크립트 배포
+# --- 컨테이너 시작 (데이터 준비 완료 후)
+
+- name: Hermes 컨테이너 시작
+  shell: docker compose up -d
+  args:
+    chdir: /data/hermes
+  become: yes
+
+# --- Hermes #58166 우회 (미출시 업스트림 버그)
+# 미인증 / 방문 시 auto-SSO 가 /auth/login?provider=basic 로 빠져 NotImplementedError(500).
+# basic provider 는 password-only 라 OAuth redirect 없음 → /login 폼으로 폴백.
+# #58166 머지/릴리스(fix 포함 이미지) 시 이 블록 제거.
+
+- name: Hermes #58166 패치 스크립트 배포 (host)
+  copy:
+    src: patch_hermes_58166.py
+    dest: /data/hermes/patch_hermes_58166.py
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
+- name: Hermes #58166 패치 적용 (basic provider auto-SSO skip → /login 폴백)
+  shell: docker exec -i -u 0 hermes python - < /data/hermes/patch_hermes_58166.py
+  register: hermes_58166_patch
+  changed_when: "'PATCHED' in hermes_58166_patch.stdout"
+  become: yes
+
+- name: Hermes 컨테이너 재시작 (#58166 패치 반영)
+  shell: docker restart hermes
+  become: yes
+  when: hermes_58166_patch.changed
+
+
+# --- 컨테이너 내부 도구 설치 (uv tool)
+
+- name: shell-gpt 설치 (uv tool)
+  shell: >
+    docker exec hermes bash -lc "uv tool install shell-gpt &&
+    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
+  become: true
+  register: sgpt_install
+  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
+
+- name: shell-gpt 설정 파일 배포
+  template:
+    src: sgptrc.j2
+    dest: /data/hermes/data/home/.config/shell_gpt/.sgptrc
+    owner: "10000"
+    group: "10000"
+    mode: "0644"
+
+# --- 백업 스크립트 + cron
+
+- name: Hermes backup 스크립트 배포 (컨테이너 /opt/data/backup.sh)
   template:
     src: backup.sh.j2
-    dest: /data/hermes/backup.sh
-    owner: root
-    group: root
+    dest: /data/hermes/data/backup.sh
+    owner: "10000"
+    group: "10000"
     mode: "0755"
 
-- name: Hermes backup cron 설정 (하루 4회, hermes 권한으로 실행)
+- name: 구 backup.sh 제거 (/data/hermes/backup.sh)
+  file:
+    path: /data/hermes/backup.sh
+    state: absent
+
+- name: Hermes backup cron 설정 (일 1회, flock + docker exec)
   cron:
     name: "hermes-backup"
     minute: "10"
-    hour: "3,9,15,21"
-    job: "sudo -u #10000 /bin/bash -c '/data/hermes/backup.sh' >> /data/hermes/backup.log 2>&1"
+    hour: "3"
+    job: "flock -n /data/hermes/backup.lock docker exec hermes /opt/data/backup.sh >> /data/hermes/backup.log 2>&1"
     user: root

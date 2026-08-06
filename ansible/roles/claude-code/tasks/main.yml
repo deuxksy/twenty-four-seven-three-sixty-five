@@ -1,0 +1,16 @@
+# ansible/roles/claude-code/tasks/main.yml
+
+# Claude Code: Anthropic CLI. Native installer (self-contained, Node 불필요).
+# mise Node 환경과 분리되어 자체 auto-updater로 관리되므로 Node 의존 없는
+# native 방식이 권장됨. 인증은 대화형 OAuth → ansible 범위 밖.
+# code-server 터미널에서 `claude` 실행 후 사용자가 직접 인증 수행.
+
+- name: Claude Code 바이너리 존재 확인
+  stat:
+    path: /home/ubuntu/.local/bin/claude
+  register: claude_bin
+
+- name: Claude Code 설치 (native installer)
+  shell: curl -fsSL https://claude.ai/install.sh | bash
+  when: not claude_bin.stat.exists
+  become_user: ubuntu

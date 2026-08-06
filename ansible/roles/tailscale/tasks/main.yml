@@ -76,7 +76,17 @@
   become: true
   when: not tailscale_exit_node | bool
 
-- name: Tailscale serve — hermes (9119)
-  command: tailscale serve --bg --https 9119 --yes http://127.0.0.1:9119
+- name: Tailscale serve — hermes dashboard (9119 → 9120, basic_auth)
+  command: tailscale serve --bg --https 9119 --yes http://127.0.0.1:9120
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — patchmon (8443)
+  command: tailscale serve --bg --https 8443 --yes http://127.0.0.1:3001
+  become: true
+  when: not tailscale_exit_node | bool
+
+- name: Tailscale serve — pulse (10000)
+  command: tailscale serve --bg --https 10000 --yes http://127.0.0.1:10001
   become: true
   when: not tailscale_exit_node | bool

@@ -1,18 +1,65 @@
 # ansible/roles/docker/tasks/main.yml
 
-# Docker 공식 GPG 키 추가
-- name: Docker GPG 키 추가
-  apt_key:
+# Docker GPG 키 — keyring 방식 (signed-by)으로 /etc/apt/keyrings/에 저장
+# apt_key 모듈(/etc/apt/trusted.gpg)은 apt-key(8) deprecation 경고 유발 → keyring + signed-by 사용
+- name: Docker keyring 디렉토리 생성
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Docker GPG 키 다운로드 (keyring)
+  get_url:
     url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
 
-- name: Docker APT 리포지토리 추가
-  apt_repository:
-    repo: "deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+# 기존 one-line 포맷 제거 (apt_repository → deb822 마이그레이션)
+# apt_repository는 filename 미지정 시 download_docker_com_linux_ubuntu.list 자동 생성
+- name: Legacy Docker apt sources 제거 (one-line → deb822)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/docker.list
+    - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+  register: docker_legacy_removed
+
+# deb822 포맷 (apt_repository 모듈은 ansible-core 2.25에서 제거 예정 → deb822_repository 사용)
+- name: Docker APT 리포지토리 추가 (deb822, signed-by keyring)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/ubuntu
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    architectures: arm64
+    signed_by: /etc/apt/keyrings/docker.asc
     state: present
+  register: docker_repo
+
+# deb822_repository는 cache를 자동 갱신하지 않음 → repo/legacy 변경 시 수동 갱신
+- name: apt cache 갱신 (Docker repo 변경 시)
+  apt:
     update_cache: yes
+  when: docker_repo.changed or docker_legacy_removed.changed
 
-# Docker 설치
+# Legacy 정리 — 기존 apt_key가 /etc/apt/trusted.gpg에 저장한 Docker 키 제거 (apt-key deprecation 경고 제거)
+- name: Legacy trusted.gpg에서 Docker 키 제거
+  ansible.builtin.shell: |
+    if apt-key export 0EBFCD88 2>/dev/null | grep -q 'BEGIN PGP'; then
+      apt-key del 0EBFCD88
+    else
+      echo "ALREADY_REMOVED"
+    fi
+  register: legacy_key_del
+  changed_when: "'OK' in legacy_key_del.stdout"
+
+# Docker 설치 (docker-ce + containerd.io — containerd image store default on Docker 29+)
 - name: Docker Engine + Compose 플러그인 설치
   apt:
     name:
@@ -28,39 +75,8 @@
     groups: docker
     append: yes
 
-- name: Docker daemon.json 배포 (로그 로테이션)
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "10m",
-          "max-file": "3"
-        }
-      }
-    owner: root
-    group: root
-    mode: "0644"
-  notify: restart docker
-
-- name: Docker 서비스 활성화
-  service:
-    name: docker
-    state: started
-    enabled: yes
-
-- name: Proxy Docker 네트워크 확인
-  ansible.builtin.command: docker network inspect proxy
-  register: proxy_network
-  changed_when: false
-  failed_when: false
-
-- name: Proxy Docker 네트워크 생성
-  ansible.builtin.command: docker network create proxy
-  when: proxy_network.rc != 0
-
-# Block Volume 마운트 (/data — /home/ubuntu에 마운트하면 .ssh 덮어씌워짐)
+# Block Volume (/data) — data-root 이동 전 마운트 선행 (drop-in과 함께 부팅 순서 보장)
+# Block Volume 64GB — Docker + containerd 데이터를 /data 하위로 이동하여 루트 볼륨 부담 분리
 - name: Block Volume 파일시스템 생성
   filesystem:
     fstype: ext4
@@ -85,3 +101,129 @@
     path: /data
     owner: ubuntu
     group: ubuntu
+
+# Docker data-root 디렉토리 (root:root 0711 — Docker state 디렉토리 권한 요구사항)
+- name: Docker data-root 디렉토리 생성 (/data/docker)
+  file:
+    path: /data/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+# containerd root 디렉토리 (containerd image store — 실제 이미지/레이어 데이터. Docker 29+는 /var/lib/docker가 아닌 containerd가 이미지 저장)
+- name: containerd root 디렉토리 생성 (/data/containerd)
+  file:
+    path: /data/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+# systemd drop-in — 부팅 시 /data 마운트 후 docker/containerd 시작 보장
+# /data가 마운트되기 전에 데몬이 시작하면 /data/docker를 루트 fs에 새로 만들어 버림
+- name: docker.service drop-in 디렉토리 생성
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: docker.service RequiresMountsFor=/data drop-in
+  copy:
+    dest: /etc/systemd/system/docker.service.d/data-mount.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/data
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: containerd.service drop-in 디렉토리 생성
+  file:
+    path: /etc/systemd/system/containerd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: containerd.service RequiresMountsFor=/data drop-in
+  copy:
+    dest: /etc/systemd/system/containerd.service.d/data-mount.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/data
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+# containerd config — root를 /data/containerd로 override
+# containerd config default 전체 생성 후 root만 변경 (containerd 2.x config 포맷 안전)
+- name: containerd config.toml 배포 (root=/data/containerd)
+  shell: |
+    set -e
+    containerd config default > /etc/containerd/config.toml
+    sed -i 's|^root = .*|root = "/data/containerd"|' /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+  notify: restart containerd
+
+# Docker daemon.json — data-root + 로그 로테이션
+- name: Docker daemon.json 배포 (data-root + 로그 로테이션)
+  copy:
+    dest: /etc/docker/daemon.json
+    content: '{"data-root":"/data/docker","log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}'
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart docker
+
+# 서비스 활성화 (containerd 먼저 — docker.service가 containerd에 의존)
+- name: containerd 서비스 활성화
+  service:
+    name: containerd
+    state: started
+    enabled: yes
+
+- name: Docker 서비스 활성화
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Proxy Docker 네트워크 확인
+  ansible.builtin.command: docker network inspect proxy
+  register: proxy_network
+  changed_when: false
+  failed_when: false
+
+- name: Proxy Docker 네트워크 생성
+  ansible.builtin.command: docker network create proxy
+  when: proxy_network.rc != 0
+
+# 공유 Git 디렉토리 (hermes 컨테이너 UID:10000 + code-server 컨테이너 UID:1001 공유)
+# POSIX ACL로 두 UID 모두에게 rwx 부여 (컨테이너가 host UID 그대로 사용, userns remap 없음)
+# default ACL로 새 파일/디렉토리에도 권한 상속 → setgid 불필요
+- name: acl 패키지 설치 (POSIX ACL 지원)
+  apt:
+    name: acl
+    state: present
+
+- name: 공유 Git 디렉토리 생성 (/data/git, root:root 0770)
+  file:
+    path: /data/git
+    state: directory
+    owner: root
+    group: root
+    mode: "0770"
+
+# ansible.posix.acl 모듈은 recursive 시 state=query 충돌 → setfacl 직접 사용.
+# setfacl -m은 멱등(동일 ACL이면 no-op) → changed_when false.
+# -R: 재귀(기존 파일), -m u:UID:rwx: 일반 ACL, -m d:u:UID:rwx: default ACL(새 파일 상속)
+- name: /data/git POSIX ACL 설정 (UID 1001/10000 rwx + default 상속, setfacl)
+  ansible.builtin.command: >
+    setfacl -R -m u:1001:rwx,u:10000:rwx -m d:u:1001:rwx,d:u:10000:rwx /data/git
+  changed_when: false

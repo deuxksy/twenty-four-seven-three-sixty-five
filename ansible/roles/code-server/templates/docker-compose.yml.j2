@@ -9,6 +9,8 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - /data/code-server/data:/home/coder
+      - /data/git:/home/coder/git
+      - /home/ubuntu/.ssh:/home/coder/.ssh:ro
     environment:
-      - PASSWORD={{ code_server_password | default('changeme') }}
+      - PASSWORD={{ lookup('env', 'CODE_SERVER_PASSWORD') | default('changeme') }}
       - TZ=Asia/Seoul

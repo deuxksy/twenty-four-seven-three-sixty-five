@@ -1,0 +1,25 @@
+# ansible/roles/pulse/tasks/main.yml
+
+# Pulse - 시스템 모니터링 서비스 (docker-compose)
+# /data/pulse/ 에 배포. Docker named volume(pulse_data)은
+# data-root(/data/docker/volumes/)에 저장 — Block Volume 활용.
+
+- name: Pulse 데이터 디렉토리 생성
+  file:
+    path: /data/pulse
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: Docker Compose 파일 생성
+  template:
+    src: docker-compose.yml.j2
+    dest: /data/pulse/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+
+- name: Pulse 컨테이너 시작
+  shell: docker compose up -d
+  args:
+    chdir: /data/pulse
+  become: yes

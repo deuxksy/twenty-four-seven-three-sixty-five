@@ -9,8 +9,17 @@
         tailscale_exit_node: false
         tailscale_hostname: "brla"
     - role: docker
+    - role: packages
+    - role: binary
+    - role: zsh
+    - role: mise
+    - role: claude-code
     - role: code-server
+      tags: code-server
     - role: homepage
+      tags: homepage
     - role: gatus
     - role: beszel
     - role: hermes
+    - role: patchmon
+    - role: pulse

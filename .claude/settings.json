@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in ansible/*.yml|ansible/*.yaml) echo \"[ansible syntax-check] $f\"; ansible-playbook --syntax-check ansible/playbook-brla.yml -i ansible/inventory/hosts.ini 2>&1 | tail -5;; opentofu/*.tf) echo \"[tofu fmt] $f\"; tofu fmt -check \"$f\" 2>&1 | tail -5;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}

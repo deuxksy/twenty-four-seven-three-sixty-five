@@ -1,15 +1,16 @@
 # Hermes Agent config - Ansible 자동 생성
 _config_version: 26
 model:
-  default: k3-256k
+  default: google/gemma-4-26b-a4b-qat
   provider: custom:aperture
 
 providers: {}
 
 custom_providers:
 - name: aperture
-  base_url: http://ai
-  api_mode: anthropic_messages
+  base_url: http://ai/v1
+  key_env: ANTHROPIC_API_KEY
+  api_mode: chat_completions
 
 timezone: Asia/Seoul
 
@@ -24,8 +25,3 @@ discord:
   free_response_channels:
     - "1511797315722149928"
   reactions: true
-
-dashboard:
-  basic_auth:
-    username: crong
-    password_hash: "scrypt$16384$8$1$WvwGzu5pqkNYWESrM1hXsw==$47fbA5hF5t+zUHMkG4DpG2TcNIZOQYmYTOB3WZ8ipBI="

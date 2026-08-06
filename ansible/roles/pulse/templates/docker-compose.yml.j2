@@ -1,0 +1,32 @@
+name: pulse
+
+services:
+  pulse:
+    image: rcourtman/pulse:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:10001:7655"
+    volumes:
+      - pulse_data:/data
+    mem_limit: 512m
+    cpus: '1.0'
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      FRONTEND_PORT: "7655"
+      PULSE_METRICS_PORT: "9091"
+      PULSE_METRICS_BIND_ADDRESS: "127.0.0.1"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7655/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  pulse_data:
