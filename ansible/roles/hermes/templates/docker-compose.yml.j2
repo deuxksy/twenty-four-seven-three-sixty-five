@@ -18,3 +18,9 @@ services:
       - API_SERVER_KEY={{ lookup('env', 'HERMES_API_SERVER_KEY') }}
       - DISCORD_BOT_TOKEN={{ lookup('env', 'DISCORD_BOT_TOKEN') }}
       - DISCORD_ALLOWED_USERS={{ lookup('env', 'DISCORD_ALLOWED_USERS') }}
+      # uv Python 환경
+      - HOME=/opt/data/home
+      - UV_TOOL_BIN_DIR=/opt/data/home/.local/bin
+      - UV_TOOL_DIR=/opt/data/home/.local/share/uv/tools
+      - UV_CACHE_DIR=/opt/data/home/.cache/uv
+      - PATH=/opt/data/home/.local/bin:/usr/local/bin:/usr/bin:/bin

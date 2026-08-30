@@ -285,13 +285,35 @@
 
 # --- 컨테이너 내부 도구 설치 (uv tool)
 
+- name: uv 설치 확인 (컨테이너 내부)
+  shell: docker exec hermes uv --version
+  register: hermes_uv_check
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: uv 설치 (컨테이너 내부, 없는 경우)
+  shell: >
+    docker exec
+    -e HOME=/opt/data/home
+    hermes
+    sh -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  become: true
+  when: hermes_uv_check.rc != 0
+
 - name: shell-gpt 설치 (uv tool)
   shell: >
-    docker exec hermes bash -lc "uv tool install shell-gpt &&
-    uv pip install --python /opt/data/home/.local/share/uv/tools/shell-gpt/bin/python click"
+    docker exec
+    -e HOME=/opt/data/home
+    -e UV_TOOL_BIN_DIR=/opt/data/home/.local/bin
+    -e UV_TOOL_DIR=/opt/data/home/.local/share/uv/tools
+    -e UV_CACHE_DIR=/opt/data/home/.cache/uv
+    hermes
+    uv tool install shell-gpt --force
   become: true
   register: sgpt_install
-  changed_when: "'Installed' in sgpt_install.stdout or sgpt_install.rc == 0"
+  changed_when: "'Installed' in sgpt_install.stdout"
+  when: hermes_uv_check.rc == 0
 
 - name: shell-gpt 설정 파일 배포
   template:
