@@ -1,0 +1,44 @@
+# ansible/roles/gluetun/tasks/main.yml
+# Surfshark WireGuard 터널 + 내장 HTTP proxy(8888) 제공.
+# KR 차단 사이트(onejav 등)의 비한국 egress 경로.
+
+- name: Gluetun 디렉토리 생성
+  ansible.builtin.file:
+    path: /data/gluetun
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+- name: Gluetun 환경변수 확인
+  ansible.builtin.assert:
+    that:
+      - lookup('env', item) | length > 0
+    fail_msg: "Ansible 실행 전 {{ item }} 환경변수를 load 하세요. (Surfshark 수동 설정에서 발급)"
+  loop:
+    - SURFSHARK_WG_PRIVATE_KEY
+    - SURFSHARK_WG_ADDRESSES
+  no_log: true
+
+- name: Tailscale IP 조회
+  ansible.builtin.command: tailscale ip -4
+  register: gluetun_ts_ip
+  changed_when: false
+
+- name: Gluetun Docker Compose 파일 생성
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /data/gluetun/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+
+- name: Gluetun 이미지 pull
+  ansible.builtin.command: docker pull qmcgaw/gluetun:latest
+  changed_when: true
+
+- name: Gluetun 컨테이너 시작
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /data/gluetun
+  changed_when: true

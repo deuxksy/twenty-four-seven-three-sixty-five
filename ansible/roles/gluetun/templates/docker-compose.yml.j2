@@ -1,0 +1,22 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      # tailnet 인터페이스에만 바인딩 (인터넷은 OCI SL 차단, VCN 허용)
+      - "{{ gluetun_ts_ip.stdout }}:8888:8888"
+    environment:
+      TZ: Asia/Seoul
+      VPN_SERVICE_PROVIDER: surfshark
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: {{ lookup('env', 'SURFSHARK_WG_PRIVATE_KEY') | to_json }}
+      WIREGUARD_ADDRESSES: {{ lookup('env', 'SURFSHARK_WG_ADDRESSES') | to_json }}
+      SERVER_COUNTRIES: {{ gluetun_server_countries | default('Japan') | to_json }}
+      # 내장 HTTP proxy: forward proxy(CONNECT) - tailscale serve로는 대체 불가
+      HTTPPROXY: "on"
+      HTTPPROXY_STEALTH: "on"

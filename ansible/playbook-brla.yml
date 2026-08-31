@@ -23,3 +23,8 @@
     - role: hermes
     - role: patchmon
     - role: pulse
+    - role: gluetun
+      tags: gluetun
+      # Japan 노드는 onejav가 503으로 거부 (exit IP 평판) - Singapore 확인됨
+      vars:
+        gluetun_server_countries: "Singapore"
