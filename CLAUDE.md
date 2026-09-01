@@ -145,6 +145,7 @@ graph TD
 
 - `.env.local`의 `dec`/`load`는 alias — Claude Code Bash(비대화형)에서 인식 안 됨. 직접 함수명 `sops-dec`, `sops-load` 또는 raw `sops -d` 명령 사용
 - `.env.local` source 시 `SOPS_AGE_KEY_FILE="$(pwd)/keys.txt"` 강제 (사전 env override 무효) — age 키가 다른 경로(`~/.config/sops/age/keys.txt`)면 루트에 `keys.txt` 심볼릭 링크 필요
+- 루트 `keys.txt`는 stale일 수 있음 (2026-09 확인: `.env.sops` recipient와 불일치) — `sops -d`가 "no identity matched"로 실패하면 `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`로 복호화. 루트 keys.txt를 기본 경로 symlink로 교체 권장
 - **Ansible + SOPS 실행**: Claude Code Bash는 각 호출이 독립 셸 → `source .env`와 `ansible-playbook`을 반드시 **단일 명령**으로 실행해야 `lookup('env', ...)`가 SOPS 복호화 값을 인식함. 분리 실행 시 환경변수가 유실되어 `.env`에 빈 값 기록 → 컨테이너 미기동
 - cloud-init(`user_data`) 변경 시 OCI 인스턴스 재생성(destroy+recreate) → **Public IP 변경**. cloud-init은 최소화(Tailscale 설치만)하고 설정은 Ansible로 처리
 - `OCI_PRIVATE_KEY` 환경변수가 OCI Terraform provider와 충돌 → `tofu` 명령 전 `unset OCI_PRIVATE_KEY` 필수
@@ -194,6 +195,8 @@ graph TD
 - Tailscale 인증서 발급(`tailscale cert`)은 유지 — Tailscale Serve가 TLS termination에 사용
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
+- homepage 설정 yaml의 `{{HOMEPAGE_VAR_*}}`는 순수 YAML 파서에서 unhashable key 에러 — 검증 시 `{{...}}`를 placeholder 치환 후 `yaml.safe_load`로 구조 확인
+- gluetun(Surfshark) 지역 변경: `playbook-brla.yml`의 `gluetun_server_countries` 수정 + homepage label(`services.yaml` Network 그룹) 동기화 후 brla 재배포. `docker restart`는 env 미반영 — `docker compose up -d`(recreate) 필요. WG 키는 전 지역 공통이라 config 재발급 불필요. 후보 국가는 `docker-compose.yml.j2` 주석 참조
 - `playbook-hermes-only.yml`은 POSIX ACL fallback(acl 패키지 + `/data/git` root:root 0770 + setfacl UID 1001/10000 rwx + default ACL)을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 `/data/git` 공유 권한 보장. `/data/git` 디렉토리 자체는 hermes role이 `git init` 시 자동 생성
 - POSIX ACL은 `ansible.posix.acl` 모듈이 아닌 `setfacl` command로 적용 (docker role acl task; `playbook-hermes-only.yml` fallback 동일) — 모듈 두 가지 결함: (1) `default(no)`의 `no`가 Jinja2 undefined 변수 (→ `default(false)` 우회 가능), (2) `recursive: yes` 시 내부 `state=query` 충돌 (`'recursive' MUST NOT be set when 'state=query'`). `setfacl -R -m u:UID:rwx -m d:u:UID:rwx` 한 명령으로 recursive(기존 파일)+default ACL(신규 파일 상속) 동시 처리. `-m`은 멱등(동일 ACL이면 no-op) → `changed_when: false`
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
