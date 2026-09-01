@@ -16,6 +16,12 @@ services:
       VPN_TYPE: wireguard
       WIREGUARD_PRIVATE_KEY: {{ lookup('env', 'SURFSHARK_WG_PRIVATE_KEY') | to_json }}
       WIREGUARD_ADDRESSES: {{ lookup('env', 'SURFSHARK_WG_ADDRESSES') | to_json }}
+      # 지역 변경: playbook-brla.yml의 gluetun_server_countries 값 수정 후 배포 (컨테이너 재생성됨)
+      #   키는 전 지역 공통 — config 재발급 불필요, gluetun이 서버 Peer 정보 자동 조립
+      # 후보 (Surfshark endpoint → SERVER_COUNTRIES 값):
+      #   US (us-sfo/us-nyc), Japan (jp-tok), Singapore (sg-sng), Vietnam (vn-hcm),
+      #   Netherlands (nl-ams), Germany (de-fra/de-ber)
+      # 좁히기: SERVER_REGIONS(미국 등) / SERVER_CITIES / SERVER_HOSTNAMES
       SERVER_COUNTRIES: {{ gluetun_server_countries | default('Japan') | to_json }}
       # 내장 HTTP proxy: forward proxy(CONNECT) - tailscale serve로는 대체 불가
       HTTPPROXY: "on"
