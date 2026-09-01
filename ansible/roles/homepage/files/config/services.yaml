@@ -78,6 +78,15 @@
         container: pulse-pulse-1
 
 - Network:
+    - NextDNS:
+        label: "DNS Filtering"
+        icon: nextdns.png
+        href: https://my.nextdns.io/6cc36a
+        widget:
+          type: nextdns
+          profile: 6cc36a
+          key: {{HOMEPAGE_VAR_NEXTDNS_KEY}}
+
     - Gluetun:
         label: "WireGuard VPN (Surfshark SG)"
         icon: gluetun.png
