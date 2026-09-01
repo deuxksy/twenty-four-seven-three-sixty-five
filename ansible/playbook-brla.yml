@@ -5,24 +5,36 @@
   become: yes
   roles:
     - role: tailscale
+      tags: tailscale
       vars:
         tailscale_exit_node: false
         tailscale_hostname: "brla"
     - role: docker
+      tags: docker
     - role: packages
+      tags: packages
     - role: binary
+      tags: binary
     - role: zsh
+      tags: zsh
     - role: mise
+      tags: mise
     - role: claude-code
+      tags: claude-code
     - role: code-server
       tags: code-server
     - role: homepage
       tags: homepage
     - role: gatus
+      tags: gatus
     - role: beszel
+      tags: beszel
     - role: hermes
+      tags: hermes
     - role: patchmon
+      tags: patchmon
     - role: pulse
+      tags: pulse
     - role: gluetun
       tags: gluetun
       # Japan 노드는 onejav가 503으로 거부 (exit IP 평판) - Singapore 확인됨
