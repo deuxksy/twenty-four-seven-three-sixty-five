@@ -2,10 +2,6 @@
 
 OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 접근 가능한 환경에서 OpenTofu + Ansible로 프로비저닝하고, Tailscale HTTPS로 code-server에 접속해 개발.
 
-```
-Web Browser → GitHub Codespaces → OpenTofu/Ansible 배포 → code-server (Tailscale HTTPS)
-```
-
 ## 📚 문서 디렉토리 (Diátaxis Index)
 
 ### 🚀 Tutorials (입문)
@@ -74,8 +70,8 @@ Homepage의 Transmission/Jellyfin/Aria2 링크는 기존 Heritage 서비스를 �
 ## AI Agent (Hermes)
 
 `brla`에 `nousresearch/hermes-agent` 컨테이너(`network_mode: host`)를 배포한다.
-AI provider는 Tailscale Aperture 경유로 `glm-5-turbo`를 사용하며,
-`deuxksy/ai-brla` repo에 하루 4회(03:10/09:10/15:10/21:10) SQLite dump를
+AI provider는 Tailscale Aperture를 경유하며,
+`deuxksy/ai-brla` repo에 일 1회(03:10) SQLite dump를
 자동 백업한다. 컨테이너는 UID 10000으로 `/data/hermes/data`를 소유한다.
 
 | 컴포넌트 | 포트 | URL |
