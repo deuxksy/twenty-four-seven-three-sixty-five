@@ -63,6 +63,17 @@
           version: 2
           url: http://gatus:8088
 
+    - Gluetun:
+        label: "WireGuard VPN (Surfshark SG)"
+        icon: gluetun.png
+        server: my-docker
+        container: gluetun
+        widget:
+          type: gluetun
+          version: 2
+          url: http://gluetun:8000
+          key: {{HOMEPAGE_VAR_GLUETUN_KEY}}
+
     - PatchMon:
         label: "Patch Monitor"
         icon: patchmon.png

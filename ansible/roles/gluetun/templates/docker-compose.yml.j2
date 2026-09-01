@@ -20,3 +20,12 @@ services:
       # 내장 HTTP proxy: forward proxy(CONNECT) - tailscale serve로는 대체 불가
       HTTPPROXY: "on"
       HTTPPROXY_STEALTH: "on"
+      # HTTP control server - homepage dashboard gluetun 위젯용
+      HTTP_CONTROL_SERVER_ADDRESS: ":8000"
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: '{{ {"auth": "apikey", "apikey": lookup("env", "GLUETUN_CONTROL_API_KEY")} | to_json }}'
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

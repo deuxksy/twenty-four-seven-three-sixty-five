@@ -27,6 +27,7 @@
     - HOMEPAGE_VAR_LATITUDE
     - HOMEPAGE_VAR_LONGITUDE
     - HOMEPAGE_VAR_FINNHUB_KEY
+    - GLUETUN_CONTROL_API_KEY
   no_log: true
 
 - name: Homepage Docker Compose 파일 생성

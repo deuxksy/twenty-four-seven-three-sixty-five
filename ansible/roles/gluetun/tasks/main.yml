@@ -18,6 +18,7 @@
   loop:
     - SURFSHARK_WG_PRIVATE_KEY
     - SURFSHARK_WG_ADDRESSES
+    - GLUETUN_CONTROL_API_KEY
   no_log: true
 
 - name: Tailscale IP 조회
