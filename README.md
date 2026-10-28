@@ -1,6 +1,6 @@
 # 247365
 
-OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 접근 가능한 환경에서 OpenTofu + Ansible로 프로비저닝하고, Tailscale HTTPS로 code-server에 접속해 개발.
+OCI Free-Tier(AMD Micro + ARM A1) 기반의 상시 운영(24/7/365) 개인 클라우드 인프라 프로젝트입니다. Web 브라우저만으로 안전하게 개발할 수 있는 환경을 OpenTofu와 Ansible로 자동 프로비저닝하며, Tailscale HTTPS 기반의 code-server, Hermes AI Agent, 모니터링 대시보드(Homepage, Gatus, Beszel) 및 해외 우회 프록시(Gluetun, FlareSolverr)를 통합 운영합니다.
 
 ## 📚 문서 디렉토리 (Diátaxis Index)
 
@@ -13,10 +13,12 @@ OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 
 ### 📋 Reference (참고자료)
 - [프로젝트 구조](#구조) - Repository 디렉토리 및 파일 역할 정의
 - [Monitoring Dashboard](#monitoring-dashboard) - BRL-A 대시보드 및 Monitoring 스택 사양
+- [AI Agent (Hermes)](#ai-agent-hermes) - LLM 에이전트 런타임 및 대시보드 사양
 - [Network Proxy & Bypass](#network-proxy--anti-bot-bypass-gluetun--flaresolverr) - Gluetun VPN 및 FlareSolverr 차단 우회 스택
+- [문서 허브 (docs/README.md)](./docs/README.md) - 저장소 하위 문서 디렉토리 안내
 
 ### 💡 Explanation (설명)
-- [OCI Free-Tier 아키텍처](CLAUDE.md#architecture) - VCN 및 인스턴스 설계 개념과 가용성 구조
+- [인프라 아키텍처](#architecture) - VCN, 인스턴스 토폴로지 및 네트워크 흐름
 
 ## Quick Start
 
@@ -50,6 +52,36 @@ opentofu/          # OpenTofu (VCN, Compute, Storage)
 ansible/           # Ansible (Tailscale, Docker, code-server, monitoring, Hermes)
 .devcontainer/     # Codespaces 설정
 ```
+
+## Architecture
+
+```mermaid
+graph TD
+  subgraph OCI["Oracle Cloud Infrastructure (춘천)"]
+    subgraph VCN["VCN 10.210.0.0/16"]
+      IGW["Internet Gateway"]
+      SGW["Service Gateway"]
+
+      subgraph lt_subnet["lt-subnet 10.210.0.0/24"]
+        lt["lt (AMD Micro - Ubuntu 24.04)<br/>Tailscale Exit Node / SSH Bastion"]
+      end
+
+      subgraph brla_subnet["brla-subnet 10.210.1.0/24"]
+        brla["brla (ARM A1 - 4 OCPU / 24GB)<br/>Docker Compose Application Server"]
+        BV["Block Volume 64GB (/data)"]
+      end
+
+      IGW --> lt_subnet
+      IGW --> brla_subnet
+      SGW --> brla_subnet
+    end
+  end
+
+  Internet --> IGW
+```
+
+- **lt (조명 로봇)**: 공용 IP를 보유한 최소 사양 관리 노드. Tailscale Exit Node 및 SSH ProxyJump Bastion 역할.
+- **brla (파라솔 로봇)**: 사설 서브넷에 위치하며 64GB 블록 볼륨(`/data`)을 마운트해 Docker Compose 서비스 구동. Tailscale 암호화 터널을 통해서만 접근.
 
 ## Monitoring Dashboard
 

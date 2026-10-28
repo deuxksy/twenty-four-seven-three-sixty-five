@@ -20,3 +20,8 @@ ansible/inventory/hosts.ini
 
 # understand-anything (지식 그래프 도구)
 .understand-anything/
+
+# 로컬 런타임 및 로그
+logs/
+*.sqlite3
+
