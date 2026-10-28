@@ -196,7 +196,10 @@ graph TD
 - Homepage `HOMEPAGE_ALLOWED_HOSTS`: 도메인만 지정 (예: `brla.bun-bull.ts.net`). 포트 번호 불필요
 - Homepage Calendar/Agenda 위젯: `view: agenda`에서도 `integrations:`에 ical URL을 명시해야 이벤트 표시됨. 빈 `integrations:`는 동작 안 함
 - homepage 설정 yaml의 `{{HOMEPAGE_VAR_*}}`는 순수 YAML 파서에서 unhashable key 에러 — 검증 시 `{{...}}`를 placeholder 치환 후 `yaml.safe_load`로 구조 확인
-- gluetun(Surfshark) 지역 변경: `playbook-brla.yml`의 `gluetun_server_countries` 수정 + homepage label(`services.yaml` Network 그룹) 동기화 후 brla 재배포. `docker restart`는 env 미반영 — `docker compose up -d`(recreate) 필요. WG 키는 전 지역 공통이라 config 재발급 불필요. 후보 국가는 `docker-compose.yml.j2` 주석 참조
+- gluetun(Surfshark) + FlareSolverr:
+  - `playbook-brla.yml`의 `gluetun_server_countries` 수정 + homepage label(`services.yaml` Network 그룹) 동기화 후 brla 재배포. `docker restart`는 env 미반영 — `docker compose up -d`(recreate) 필요. WG 키는 전 지역 공통이라 config 재발급 불필요. 후보 국가는 `docker-compose.yml.j2` 주석 참조
+  - **Gluetun vs FlareSolverr 계층 분리**: Gluetun은 네트워크/L3-L4/L7 프록시 계층(WireGuard 터널, 싱가포르 IP, 포트 8888 HTTP 프록시)으로 ISP/지역 차단 우회. FlareSolverr는 애플리케이션/L7 브라우저 계층(Chromium, 포트 8191)으로 Cloudflare JS challenge/봇 감지 통과.
+  - **협동 및 IP 바인딩**: FlareSolverr가 `http://gluetun:8888`을 egress 프록시로 사용하여 challenge를 풀고 `cf_clearance` 쿠키를 발급받음. Cloudflare 쿠키는 Egress IP와 1:1 바인딩되므로, 클라이언트(Meridian-X 등)도 동일한 Gluetun 프록시를 통해 바이너리(.torrent)를 다운로드해야 함.
 - `playbook-hermes-only.yml`은 POSIX ACL fallback(acl 패키지 + `/data/git` root:root 0770 + setfacl UID 1001/10000 rwx + default ACL)을 포함 — docker role을 거치지 않고 hermes role만 단독 실행해도 `/data/git` 공유 권한 보장. `/data/git` 디렉토리 자체는 hermes role이 `git init` 시 자동 생성
 - POSIX ACL은 `ansible.posix.acl` 모듈이 아닌 `setfacl` command로 적용 (docker role acl task; `playbook-hermes-only.yml` fallback 동일) — 모듈 두 가지 결함: (1) `default(no)`의 `no`가 Jinja2 undefined 변수 (→ `default(false)` 우회 가능), (2) `recursive: yes` 시 내부 `state=query` 충돌 (`'recursive' MUST NOT be set when 'state=query'`). `setfacl -R -m u:UID:rwx -m d:u:UID:rwx` 한 명령으로 recursive(기존 파일)+default ACL(신규 파일 상속) 동시 처리. `-m`은 멱등(동일 ACL이면 no-op) → `changed_when: false`
 - Ansible ad-hoc 명령 실행 시 inventory 경로 명시 필수: `ansible -i ansible/inventory/hosts.ini brla ...`. 프로젝트 루트에서 실행하면 auto-discovery 안 됨
@@ -209,7 +212,9 @@ graph TD
 - resvg: mise aqua 백엔드가 linux/arm64 미지원 (darwin/windows/amd64만). cargo 백엔드는 rust toolchain 추가 필요 → SVG preview(옵션)라 생략
 - 결합점 (다중 파일 참조 값, 변경 시 동기화 필수):
   - **디바이스/볼륨**: `/dev/oracleoci/oraclevdb` (storage.tf, docker role), Docker data-root `/data/docker` + containerd root `/data/containerd` (docker role daemon.json/config.toml, systemd drop-in)
-  - **서비스 포트** (compose 127.0.0.1 바인딩, tailscale serve — 내부/외부): homepage `3000`/`443`, code-server `8080`, gatus `8088`, beszel `8090`, hermes dashboard `9120`/`9119`, gateway `8642`(host 모드, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), patchmon `3001`/`8443`, pulse `10001`/`10000`
+  - **서비스 포트**:
+    - Tailscale Serve HTTPS (compose 127.0.0.1 종단): homepage `3000`/`443`, code-server `8080`, gatus `8088`, beszel `8090`, hermes dashboard `9120`/`9119`, gateway `8642`(host 모드, Hermes 프로세스가 `0.0.0.0:9120` + `127.0.0.1:8642` 직접 bind), patchmon `3001`/`8443`, pulse `10001`/`10000`
+    - Tailnet IP 바인딩 (프록시/API): gluetun `8888` (HTTP 프록시), flaresolverr `8191` (Cloudflare Solver API)
   - **Docker 이미지명**: compose 파일, `playbook-ops.yml` docker-update tag
   - **호스트명/CIDR**: `lt`/`brla` (variables.tf, cloud-init, playbook), `10.210.1.0/24` (variables.tf, cloud-init, playbook)
   - **UID/GID**: `1001`(code-server)/`10000`(hermes) (compose user, tasks). 공유는 GID가 아닌 **POSIX ACL(UID 기반)**로 처리 — gitshare 그룹(GID 10001)/setgid 방식은 제거됨

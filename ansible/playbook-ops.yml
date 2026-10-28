@@ -117,6 +117,12 @@
         chdir: /data/pulse
       changed_when: false
 
+    - name: Gluetun & FlareSolverr 이미지 pull
+      ansible.builtin.shell: docker compose pull
+      args:
+        chdir: /data/gluetun
+      changed_when: false
+
     - name: code-server 컨테이너 재시작 (최신 이미지 적용)
       community.docker.docker_compose_v2:
         project_src: /data/code-server
@@ -160,6 +166,11 @@
     - name: Pulse 컨테이너 재시작
       community.docker.docker_compose_v2:
         project_src: /data/pulse
+        state: restarted
+
+    - name: Gluetun & FlareSolverr 컨테이너 재시작
+      community.docker.docker_compose_v2:
+        project_src: /data/gluetun
         state: restarted
 
 - name: Health check

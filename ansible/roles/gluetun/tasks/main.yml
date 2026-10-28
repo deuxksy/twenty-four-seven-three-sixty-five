@@ -1,6 +1,6 @@
 # ansible/roles/gluetun/tasks/main.yml
-# Surfshark WireGuard 터널 + 내장 HTTP proxy(8888) 제공.
-# KR 차단 사이트(onejav 등)의 비한국 egress 경로.
+# Surfshark WireGuard 터널 + 내장 HTTP proxy(8888) 및 FlareSolverr(8191) 제공.
+# KR 차단 사이트(onejav 등)의 비한국 egress 및 Cloudflare JS challenge 우회 경로.
 
 - name: Gluetun 디렉토리 생성
   ansible.builtin.file:
@@ -36,6 +36,10 @@
 
 - name: Gluetun 이미지 pull
   ansible.builtin.command: docker pull qmcgaw/gluetun:latest
+  changed_when: true
+
+- name: FlareSolverr 이미지 pull
+  ansible.builtin.command: docker pull ghcr.io/flaresolverr/flaresolverr:v3.5.2
   changed_when: true
 
 - name: Gluetun 컨테이너 시작

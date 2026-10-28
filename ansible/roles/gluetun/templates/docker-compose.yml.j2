@@ -32,6 +32,19 @@ services:
     networks:
       - proxy
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      # tailnet 인터페이스에만 바인딩
+      - "{{ gluetun_ts_ip.stdout }}:8191:8191"
+    environment:
+      TZ: Asia/Seoul
+      LOG_LEVEL: info
+    networks:
+      - proxy
+
 networks:
   proxy:
     external: true

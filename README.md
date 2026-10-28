@@ -13,6 +13,7 @@ OCI Free-Tier(AMD Micro + ARM A1) 인프라 구성 프로젝트. Web Browser만 
 ### 📋 Reference (참고자료)
 - [프로젝트 구조](#구조) - Repository 디렉토리 및 파일 역할 정의
 - [Monitoring Dashboard](#monitoring-dashboard) - BRL-A 대시보드 및 Monitoring 스택 사양
+- [Network Proxy & Bypass](#network-proxy--anti-bot-bypass-gluetun--flaresolverr) - Gluetun VPN 및 FlareSolverr 차단 우회 스택
 
 ### 💡 Explanation (설명)
 - [OCI Free-Tier 아키텍처](CLAUDE.md#architecture) - VCN 및 인스턴스 설계 개념과 가용성 구조
@@ -83,3 +84,41 @@ Dashboard는 컨테이너 내 `9120` 포트에서 basic_auth로 동작하고(`HO
 Tailscale Serve가 `9119` HTTPS로 종단하여 `127.0.0.1:9120`으로 프록시한다.
 인증 정보는 SOPS의 `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` /
 `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`를 사용한다.
+
+## Network Proxy & Anti-Bot Bypass (Gluetun & FlareSolverr)
+
+`brla`에 해외 egress 프록시(**Gluetun**)와 Cloudflare 챌린지 우회용 헤드리스 브라우저(**FlareSolverr**)를 배포하여, 외부 수집기(Meridian-X 등)의 검열 회피 및 봇 차단 우회 경로를 제공한다.
+
+| 서비스 | 컨테이너 | 내부/Tailnet 포트 | 역할 및 특성 |
+| :--- | :--- | :--- | :--- |
+| Gluetun | `gluetun` | `8888` (HTTP Proxy), `8000` (Control) | Surfshark WireGuard 기반 VPN 터널. IP 변경 및 해외(Singapore) egress 제공 |
+| FlareSolverr | `flaresolverr` | `8191` (HTTP API) | Headless Chromium 런타임. Cloudflare JS Challenge/봇 감지 해결 |
+
+### Gluetun vs FlareSolverr 차이점 및 협동 구조
+
+* **Gluetun (네트워크 L3/L4/L7 Proxy 계층)**:
+  - **역할**: WireGuard VPN 터널로 트래픽의 출발지 IP(Egress IP)를 싱가포르 등 해외로 전환.
+  - **해결 범위**: 한국 ISP/정부의 단순 IP 차단, 방통위 SNI 차단, 해외 지역 제한(Geo-block) 우회.
+  - **한계**: Cloudflare의 브라우저 무결성 검사(JS Challenge, 403 Forbidden)는 IP 변경만으로 통과 불가.
+* **FlareSolverr (애플리케이션 L7 Browser 계층)**:
+  - **역할**: 실제 Chromium 브라우저를 띄워 자바스크립트 실행 및 핑거프린트 검증을 통과하고 `cf_clearance` 쿠키/HTML 반환.
+  - **해결 범위**: Cloudflare 봇 감지 및 JS Challenge 통과.
+  - **한계**: 자체 VPN 기능이 없어 한국 IP에서 직접 실행 시 ISP 차단에 걸림. 또한 `.torrent` 등 바이너리 파일 직접 다운로드 불가.
+
+```mermaid
+flowchart TD
+    subgraph BRLA["brla (Oracle Cloud)"]
+        FS["FlareSolverr\n(:8191, Chromium)"]
+        GT["Gluetun\n(:8888, Surfshark Singapore)"]
+    end
+
+    Client["수집 클라이언트\n(Meridian-X)"] -->|"1. Challenge 풀이 요청"| FS
+    FS -->|"2. 싱가포르 IP로 통신\n(proxy: http://gluetun:8888)"| GT
+    GT -->|"3. Cloudflare JS 통과"| Target["대상 사이트\n(OneJAV 등)"]
+    Target -->|"4. cf_clearance 쿠키 반환"| FS
+    FS -->|"5. 쿠키 + HTML 전달"| Client
+    Client -->|"6. 발급된 쿠키 들고\n바이너리(.torrent) 직접 다운로드"| GT
+    GT -->|"7. 동일 싱가포르 IP로 요청"| Target
+```
+
+> **IP 바인딩 주의**: Cloudflare의 `cf_clearance` 쿠키는 챌린지를 통과한 Egress IP와 바인딩되므로, FlareSolverr가 경유한 Gluetun 프록시와 클라이언트가 바이너리를 다운로드할 때 사용하는 Gluetun 프록시는 동일해야 합니다.
